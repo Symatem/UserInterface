@@ -1,0 +1,13 @@
+{
+  "name": "Symatem",
+  "version": "0.0.0",
+  "description": "An IDE for Symatem",
+  "engines": {
+    "atom": ">=1.2.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Symatem/IDE.git"
+  }
+}

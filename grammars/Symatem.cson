@@ -1,0 +1,83 @@
+'scopeName': 'source.Symatem'
+'fileTypes': [
+  'sym'
+  'Symatem'
+]
+'name': 'Symatem'
+'patterns': [
+  {
+    'include': '#symbol'
+  }
+  {
+    'match': ';'
+    'name': 'invalid.illegal'
+  }
+]
+'repository':
+  'block':
+    'begin': '\\('
+    'beginCaptures':
+      '0':
+        'name': 'punctuation'
+    'end': '\\)'
+    'endCaptures':
+      '0':
+        'name': 'punctuation'
+    'patterns': [
+      {
+        'include': '#symbol'
+      }
+      {
+        'match': ';'
+        'name': 'keyword.operator'
+      }
+    ]
+  'local':
+    'match': '#[^\\s();]*'
+    'name': 'storage.type' #entity.name.function
+  'quotedText':
+    'begin': '"'
+    'beginCaptures':
+      '0':
+        'name': 'keyword.operator'
+    'end': '"'
+    'endCaptures':
+      '0':
+        'name': 'keyword.operator'
+    'name': 'string.quoted.double'
+    'patterns': [
+      {
+        'match': '\\\\.'
+        'name': 'constant.character.escape'
+      }
+    ]
+  'raw':
+    'match': 'raw\\:[0-9A-F]+'
+    'name': 'constant.numeric'
+  'number':
+    'match': '-?\\d+\\.?\\d*([eE][+-]?\\d+)?'
+    'name': 'constant.numeric'
+  'unquotedText':
+    'match': '[^\\s();]+'
+    'name': 'string.unquoted'
+  'symbol':
+    'patterns': [
+      {
+        'include': '#block'
+      }
+      {
+        'include': '#local'
+      }
+      {
+        'include': '#quotedText'
+      }
+      {
+        'include': '#raw'
+      }
+      {
+        'include': '#number'
+      }
+      {
+        'include': '#unquotedText'
+      }
+    ]

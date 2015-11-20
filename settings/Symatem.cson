@@ -1,0 +1,4 @@
+'.source.Symatem':
+  'editor':
+    'increaseIndentPattern': '\\($'
+    'decreaseIndentPattern': '^\\s*\\)'
