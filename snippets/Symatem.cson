@@ -1,0 +1,112 @@
+'.source.Symatem':
+
+  'Search':
+    'prefix': 'search'
+    'body': '(Module Search; Entity $1; Attribute $2; Value $3; Varying $4; Output $5; Count $6;)'
+  'Link':
+    'prefix': 'link'
+    'body': '(Module Link; Entity $1; Attribute $2; Value $3;)'
+  'Unlink':
+    'prefix': 'unlink'
+    'body': '(Module Unlink; Entity $1; Attribute $2; Value $3;)'
+  'Create':
+    'prefix': 'new'
+    'body': '(Module Create; Output $1;)'
+  'Destroy':
+    'prefix': 'delete'
+    'body': '(Module Destroy; Input $1;)'
+  'GetEnv':
+    'prefix': 'getenv'
+    'body': '(Module GetEnv; Input $1; Output $2;)'
+  'Push':
+    'prefix': 'push'
+    'body': '(Module Pop; Execute $1;)'
+  'Pop':
+    'prefix': 'pop'
+    'body': '(Module Pop; Count $1;)'
+  'Branch':
+    'prefix': 'branch'
+    'body': '(Module Branch; Input $1; Branch $2;)'
+  'Exception':
+    'prefix': 'throw'
+    'body': '(Module Exception; $1)'
+
+  'Serialize':
+    'prefix': 'toString'
+    'body': '(Module Serialize; Input $1; Output $2;)'
+  'Deserialize':
+    'prefix': 'eval'
+    'body': '(Module Deserialize; Package $1; Input $2; Output $3;)'
+  'CloneBlob':
+    'prefix': '='
+    'body': '(Module CloneBlob; Input $1; Output $2;)'
+  'SliceBlob':
+    'prefix': 'slice'
+    'body': '(Module SliceBlob; Count $1; Destination $2; Source $3; Input $4; Target $5;)'
+  'AllocateBlob':
+    'prefix': 'malloc'
+    'body': '(Module AllocateBlob; Input $1; Target $2;)'
+  'ReallocateBlob':
+    'prefix': 'realloc'
+    'body': '(Module ReallocateBlob; Input $1; Target $2;)'
+  'EraseFromBlob':
+    'prefix': 'erase'
+    'body': '(Module EraseFromBlob; Begin $1; End $2; Target $3;)'
+  'TruncateBlob':
+    'prefix': 'truncate'
+    'body': '(Module EraseFromBlob; Begin $1; Target $3;)'
+  'InsertIntoBlob':
+    'prefix': 'insert'
+    'body': '(Module InsertIntoBlob; Input $1; Begin $2; Target $3;)'
+  'AppendToBlob':
+    'prefix': 'append'
+    'body': '(Module InsertIntoBlob; Input $1; Target $3;)'
+  'GetBlobLength':
+    'prefix': 'GetBlobLength'
+    'body': '(Module GetBlobLength; Input $1; Output $2;)'
+
+  'NumericCast':
+    'prefix': 'cast'
+    'body': '(Module NumericCast; Input $1; To $2; Output $3;)'
+  'Equal':
+    'prefix': '=='
+    'body': '(Module Equal; Input $1; Output $2;)'
+  'LessThan':
+    'prefix': '<'
+    'body': '(Module Less; Input $1; Comparandum $2; Output $3;)'
+  'LessEqual':
+    'prefix': '<='
+    'body': '(Module LessEqual; Input $1; Comparandum $2; Output $3;)'
+  'Complement':
+    'prefix': '~'
+    'body': '(Module Complement; Input $1; Output $2;)'
+  'ClearShift':
+    'prefix': 'ClearShift'
+    'body': '(Module ClearShift; Input $1; Count $2; Output $3;)'
+  'CloneShift':
+    'prefix': 'CloneShift'
+    'body': '(Module CloneShift; Input $1; Count $2; Output $3;)'
+  'BarrelShift':
+    'prefix': 'BarrelShift'
+    'body': '(Module BarrelShift; Input $1; Count $2; Output $3;)'
+  'And':
+    'prefix': '&'
+    'body': '(Module And; Input $1; Output $2;)'
+  'Or':
+    'prefix': '|'
+    'body': '(Module Or; Input $1; Output $2;)'
+  'Xor':
+    'prefix': '^'
+    'body': '(Module Xor; Input $1; Output $2;)'
+  'Add':
+    'prefix': '+'
+    'body': '(Module Add; Input $1; Output $2;)'
+  'Multiply':
+    'prefix': '*'
+    'body': '(Module Multiply; Input $1; Output $2;)'
+  'Subtract':
+    'prefix': '-'
+    'body': '(Module Subtract; Minuend $1; Subtrahend $2; Output $3;)'
+  'Divide':
+    'prefix': '/'
+    'body': '(Module Divide; Dividend $1; Divisor $2; Quotient $3; Rest $4;)'
