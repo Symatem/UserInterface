@@ -2,7 +2,7 @@
 'context-menu':
   'atom-text-editor': [
     {
-      'label': 'Toggle symatem-ide'
+      'label': 'Toggle Symatem IDE'
       'command': 'symatem-ide:toggle'
     }
   ]
@@ -10,7 +10,7 @@
   {
     'label': 'Packages'
     'submenu': [
-      'label': 'symatem-ide'
+      'label': 'Symatem IDE'
       'submenu': [
         {
           'label': 'Toggle'

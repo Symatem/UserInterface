@@ -1,5 +1,5 @@
 {
-  "name": "Symante IDE",
+  "name": "symatem-ide",
   "main": "./lib/symatem-ide",
   "version": "0.0.1",
   "description": "An IDE for Symatem",
