@@ -1,0 +1,22 @@
+{
+  "name": "Symante IDE",
+  "main": "./lib/symatem-ide",
+  "version": "0.0.1",
+  "description": "An IDE for Symatem",
+  "keywords": [
+    "ide", "symantem", "os", "graph", "matrix"
+  ],
+  "activationCommands": {
+    "atom-workspace": "symatem-ide:toggle"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Symatem/IDE.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "atom": ">=1.0.0 <2.0.0"
+  },
+  "dependencies": {
+  }
+}
