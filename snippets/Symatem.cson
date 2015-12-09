@@ -49,15 +49,9 @@
   'EraseFromBlob':
     'prefix': 'erase'
     'body': '(Procedure EraseFromBlob; Begin $1; End $2; Target $3;)'
-  'TruncateBlob':
-    'prefix': 'truncate'
-    'body': '(Procedure EraseFromBlob; Begin $1; Target $3;)'
   'InsertIntoBlob':
     'prefix': 'insert'
     'body': '(Procedure InsertIntoBlob; Input $1; Begin $2; Target $3;)'
-  'AppendToBlob':
-    'prefix': 'append'
-    'body': '(Procedure InsertIntoBlob; Input $1; Target $3;)'
   'GetBlobLength':
     'prefix': 'GetBlobLength'
     'body': '(Procedure GetBlobLength; Input $1; Output $2;)'
@@ -74,27 +68,27 @@
   'LessEqual':
     'prefix': '<='
     'body': '(Procedure LessEqual; Input $1; Comparandum $2; Output $3;)'
-  'Complement':
+  'BitShiftEmpty':
+    'prefix': 'BitShiftEmpty'
+    'body': '(Procedure BitShiftEmpty; Input $1; Count $2; Output $3;)'
+  'BitShiftReplicate':
+    'prefix': 'BitShiftReplicate'
+    'body': '(Procedure BitShiftReplicate; Input $1; Count $2; Output $3;)'
+  'BitShiftBarrel':
+    'prefix': 'BitShiftBarrel'
+    'body': '(Procedure BitShiftBarrel; Input $1; Count $2; Output $3;)'
+  'BiwiseComplement':
     'prefix': '~'
-    'body': '(Procedure Complement; Input $1; Output $2;)'
-  'ClearShift':
-    'prefix': 'ClearShift'
-    'body': '(Procedure ClearShift; Input $1; Count $2; Output $3;)'
-  'CloneShift':
-    'prefix': 'CloneShift'
-    'body': '(Procedure CloneShift; Input $1; Count $2; Output $3;)'
-  'BarrelShift':
-    'prefix': 'BarrelShift'
-    'body': '(Procedure BarrelShift; Input $1; Count $2; Output $3;)'
-  'And':
+    'body': '(Procedure BiwiseComplement; Input $1; Output $2;)'
+  'BiwiseAnd':
     'prefix': '&'
-    'body': '(Procedure And; Input $1; Output $2;)'
-  'Or':
+    'body': '(Procedure BiwiseAnd; Input $1; Output $2;)'
+  'BiwiseOr':
     'prefix': '|'
-    'body': '(Procedure Or; Input $1; Output $2;)'
-  'Xor':
+    'body': '(Procedure BiwiseOr; Input $1; Output $2;)'
+  'BiwiseXor':
     'prefix': '^'
-    'body': '(Procedure Xor; Input $1; Output $2;)'
+    'body': '(Procedure BiwiseXor; Input $1; Output $2;)'
   'Add':
     'prefix': '+'
     'body': '(Procedure Add; Input $1; Output $2;)'
