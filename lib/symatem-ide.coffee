@@ -3,12 +3,12 @@ SymatemIdeView = require './symatem-ide-view'
 
 module.exports = SymatemIde =
   symatemIdeView: null
-  modalPanel: null
+  idePanel: null
   subscriptions: null
-
+  
   activate: (state) ->
     @symatemIdeView = new SymatemIdeView(state.symatemIdeViewState)
-    @modalPanel = atom.workspace.addModalPanel(item: @symatemIdeView.getElement(), visible: false)
+    @idePanel = atom.workspace.addBottomPanel(item: @symatemIdeView.getElement(), visible: false)
 
     # Events subscribed to in atom's system can be easily cleaned up with a CompositeDisposable
     @subscriptions = new CompositeDisposable
@@ -17,7 +17,7 @@ module.exports = SymatemIde =
     @subscriptions.add atom.commands.add 'atom-workspace', 'symatem-ide:toggle': => @toggle()
 
   deactivate: ->
-    @modalPanel.destroy()
+    @idePanel.destroy()
     @subscriptions.dispose()
     @symatemIdeView.destroy()
 
@@ -27,7 +27,7 @@ module.exports = SymatemIde =
   toggle: ->
     console.log 'SymatemIde was toggled!'
 
-    if @modalPanel.isVisible()
-      @modalPanel.hide()
+    if @idePanel.isVisible()
+      @idePanel.hide()
     else
-      @modalPanel.show()
+      @idePanel.show()
