@@ -1,4 +1,4 @@
-'.source.Symatem':
+'.source.Symatem-HRL':
   'editor':
     'increaseIndentPattern': '\\($'
     'decreaseIndentPattern': '^\\s*\\)'

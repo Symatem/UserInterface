@@ -1,9 +1,9 @@
-'scopeName': 'source.Symatem'
+'scopeName': 'source.Symatem-HRL'
 'fileTypes': [
   'sym'
   'Symatem'
 ]
-'name': 'Symatem'
+'name': 'Symatem-HRL'
 'patterns': [
   {
     'include': '#symbol'
@@ -55,7 +55,7 @@
     'match': 'raw\\:[0-9A-F]+'
     'name': 'constant.numeric'
   'number':
-    'match': '-?\\d+\\.?\\d*([eE][+-]?\\d+)?'
+    'match': '-?\\d*\\.?\\d+'
     'name': 'constant.numeric'
   'unquotedText':
     'match': '[^\\s();]+'

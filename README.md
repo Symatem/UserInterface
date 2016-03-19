@@ -13,6 +13,3 @@ This IDE package is the easiest way to get started with Symatem. It supports syn
 - [ ] Terminal
 - [ ] Debugger
 - [ ] Matrix visualizer
-
-## Dependencies
-* Sigma.js

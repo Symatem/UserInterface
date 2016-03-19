@@ -1,8 +1,8 @@
 {
   "name": "symatem-ide",
-  "main": "./lib/symatem-ide",
+  "main": "./lib/main",
   "version": "v0.1.0-alpha",
-  "description": "An IDE for Symatem",
+  "description": "Atom IDE for Symatem",
   "keywords": [
     "ide", "symatem", "os", "graph", "matrix"
   ],
@@ -11,13 +11,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Symatem/IDE.git"
+    "url": "https://github.com/Symatem/symatem-ide.git"
   },
   "license": "MIT",
   "engines": {
-    "atom": ">=1.0.0 <2.0.0"
-  },
-  "dependencies": {
-    "sigma" : "1.0.3"
+    "atom": ">=1.0.0"
   }
 }
