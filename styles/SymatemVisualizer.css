@@ -1,0 +1,89 @@
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.LinkedBoxes .fadeIn {
+    animation: fadeIn 0.25s linear forwards;
+}
+
+.LinkedBoxes .fadeOut {
+    animation: fadeOut 0.25s linear forwards;
+}
+
+.LinkedBoxes {
+    padding: 0px;
+    margin: 0px;
+    position: relative;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+    -o-user-select:none;
+}
+
+.LinkedBoxes svg {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+}
+
+.LinkedBoxes circle {
+    fill: transparent;
+}
+
+.LinkedBoxes rect {
+    stroke-width: 1;
+    fill: transparent;
+}
+
+.LinkedBoxes * {
+    font-family: Verdana;
+    font-size: 12px;
+    font-style: normal;
+    font-variant: normal;
+    fill: white;
+    color: white;
+}
+
+.LinkedBoxes .link {
+    stroke-linecap: round;
+    stroke-width: 2;
+    fill: none;
+}
+
+.LinkedBoxes .cursor {
+    filter: url(#blurFilter);
+}
+
+/* .LinkedBoxes .arrow {
+    marker-end: url(#arrowMarker);
+} */
+
+
+
+#SymatemVisualizer {
+    height: 560px;
+}
+
+#SymatemVisualizer .red {
+    stroke: #f44;
+}
+
+#SymatemVisualizer .green {
+    stroke: #4f8;
+}
+
+#SymatemVisualizer .blue {
+    stroke: #48f;
+}
+
+#SymatemVisualizer .gray {
+    fill: #aaa;
+    color: #aaa;
+}
