@@ -1,5 +1,5 @@
-# Symatem IDE package for Atom
-This IDE package is the easiest way to get started with Symatem. It supports syntax highlighting, snippets and visualizers.
+# Symatem IDE
+Syntax Highlighting, Visualizer and Editor Package for Atom
 
 ## How to use it
 1. Install `symatem-ide` using Atom's package manager
@@ -8,8 +8,8 @@ This IDE package is the easiest way to get started with Symatem. It supports syn
 
 ## Todo
 - [x] Syntax highlighting
-- [x] Snippets
-- [ ] Graph visualizer
+- [x] Graph visualizer
+- [ ] Graph editor
 - [ ] Terminal
 - [ ] Debugger
 - [ ] Matrix visualizer
