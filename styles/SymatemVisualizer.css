@@ -8,15 +8,15 @@
     100% { opacity: 1; }
 }
 
-.LinkedBoxes .fadeIn {
+.WiredPanels .fadeIn {
     animation: fadeIn 0.25s linear forwards;
 }
 
-.LinkedBoxes .fadeOut {
+.WiredPanels .fadeOut {
     animation: fadeOut 0.25s linear forwards;
 }
 
-.LinkedBoxes {
+.WiredPanels {
     padding: 0px;
     margin: 0px;
     position: relative;
@@ -27,22 +27,13 @@
     -o-user-select:none;
 }
 
-.LinkedBoxes svg {
+.WiredPanels svg {
     width: 100%;
     height: 100%;
     padding: 0;
 }
 
-.LinkedBoxes circle {
-    fill: transparent;
-}
-
-.LinkedBoxes rect {
-    stroke-width: 1;
-    fill: transparent;
-}
-
-.LinkedBoxes * {
+.WiredPanels * {
     font-family: Verdana;
     font-size: 12px;
     font-style: normal;
@@ -51,19 +42,33 @@
     color: white;
 }
 
-.LinkedBoxes .link {
-    stroke-linecap: round;
+.WiredPanels .panel {
+    fill: transparent;
+}
+
+.WiredPanels .socket {
     stroke-width: 2;
+    fill: transparent;
+}
+
+.WiredPanels .socket:hover {
+    stroke-width: 4;
+}
+
+.WiredPanels .wire {
+    stroke-linecap: round;
+    stroke-width: 4;
+    stroke-opacity: 0.6;
     fill: none;
 }
 
-.LinkedBoxes .cursor {
-    filter: url(#blurFilter);
+.WiredPanels .wire:hover {
+    stroke-opacity: 1;
 }
 
-/* .LinkedBoxes .arrow {
-    marker-end: url(#arrowMarker);
-} */
+.WiredPanels .cursor {
+    filter: url(#blurFilter);
+}
 
 
 
@@ -71,19 +76,19 @@
     height: 560px;
 }
 
-#SymatemVisualizer .red {
+#SymatemVisualizer .entity {
     stroke: #f44;
 }
 
-#SymatemVisualizer .green {
+#SymatemVisualizer .attribute {
     stroke: #4f8;
 }
 
-#SymatemVisualizer .blue {
+#SymatemVisualizer .value {
     stroke: #48f;
 }
 
-#SymatemVisualizer .gray {
+#SymatemVisualizer .disabled {
     fill: #aaa;
     color: #aaa;
 }
