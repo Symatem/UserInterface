@@ -43,12 +43,25 @@
 }
 
 .WiredPanels .panel {
+    stroke-width: 1;
     fill: transparent;
+}
+
+.WiredPanels rect.panel.selected {
+    stroke-width: 2;
+}
+
+.WiredPanels rect.panel:hover {
+    stroke-width: 3;
 }
 
 .WiredPanels .socket {
     stroke-width: 2;
     fill: transparent;
+}
+
+.WiredPanels .socket.selected {
+    stroke-width: 2.5;
 }
 
 .WiredPanels .socket:hover {
@@ -63,10 +76,10 @@
 }
 
 .WiredPanels .wire:hover {
-    stroke-opacity: 1;
+    stroke-opacity: 1.0;
 }
 
-.WiredPanels .cursor {
+.WiredPanels .selected {
     filter: url(#blurFilter);
 }
 
