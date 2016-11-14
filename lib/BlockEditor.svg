@@ -1,0 +1,254 @@
+<?xml version="1.0" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny" style="background-color: #DDD;">
+    <style>
+        .lid {
+            filter: url(#lidShadow);
+            transition: fill-opacity 1.0s;
+            fill: #DDD;
+        }
+        .lid:hover {
+            fill-opacity: 0.0;
+        }
+        .box {
+            filter: url(#boxShadow);
+            fill: #000;
+            fill-opacity: 0.075;
+        }
+        .arrow {
+            fill: #FFF;
+        }
+        .label {
+            fill: black;
+            text-anchor: middle;
+            font-family: Helvetica-Bold;
+            font-size: 18px;
+        }
+    </style>
+
+    <defs>
+        <filter id="boxShadow">
+            <feComponentTransfer in="SourceAlpha" result="blur-alpha">
+                <feFuncA type="linear" slope="100" />
+            </feComponentTransfer>
+            <feGaussianBlur in="blur-alpha" stdDeviation="5" result="blur" />
+            <feComponentTransfer in="blur" result="inverse-blur">
+                <feFuncA type="linear" slope="-1" intercept="1" />
+            </feComponentTransfer>
+            <feComponentTransfer in="SourceAlpha" result="clipping-alpha">
+                <feFuncA type="linear" slope="5" />
+            </feComponentTransfer>
+            <feComposite operator="in" in="clipping-alpha" in2="inverse-blur" result="clipped-blur" />
+            <feComposite operator="over" in="clipped-blur" in2="SourceGraphic" />
+        </filter>
+        <filter id="lidShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feComponentTransfer in="SourceAlpha" result="soft-alpha">
+                <feFuncA type="linear" slope="0.2" intercept="0" />
+            </feComponentTransfer>
+            <feGaussianBlur in="soft-alpha" result="blur" stdDeviation="5" />
+            <feComposite operator="over" in="SourceGraphic" in2="blur" />
+        </filter>
+        <filter id="arrowShadow">
+            <feComponentTransfer in="SourceAlpha" result="soft-alpha">
+                <feFuncA type="linear" slope="0.2" intercept="0" />
+            </feComponentTransfer>
+            <feGaussianBlur in="soft-alpha" result="blur" stdDeviation="2" />
+            <feComposite operator="over" in="SourceGraphic" in2="blur" />
+        </filter>
+        <filter id="alphaBlur" x="-50%" y="-50%" width="150%" height="200%" primitiveUnits="userSpaceOnUse">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="5" />
+        </filter>
+        <linearGradient id="slopeShadowGradient">
+            <stop offset="0.0" stop-opacity="0.0" />
+            <stop offset="0.2" stop-opacity="0.6" />
+            <stop offset="1.0" stop-opacity="0.2" />
+        </linearGradient>
+        <linearGradient id="slopeDiffuseGradient">
+            <stop offset="0.0" stop-opacity="0.0" />
+            <stop offset="0.4" stop-opacity="0.1" />
+            <stop offset="0.6" stop-opacity="0.1" />
+            <stop offset="1.0" stop-opacity="0.0" />
+        </linearGradient>
+        <pattern id="slopeShadow" width="1" height="1">
+            <path fill="url(#slopeShadowGradient)" filter="url(#alphaBlur)" />
+        </pattern>
+        <pattern id="slopeDiffuse" width="1" height="1" patternContentUnits="objectBoundingBox">
+            <rect x="0" y="0.25" width="1" height="0.5" fill="url(#slopeDiffuseGradient)" />
+        </pattern>
+        <pattern id="diagonalStripes" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45) translate(5 0)">
+            <rect x="0" y="0" width="8" height="16" opacity="0.1" />
+        </pattern>
+    </defs>
+
+    <rect width="100" height="100" x="200" y="100" rx="10" ry="10" fill="url(#diagonalStripes)" />
+    <g id="boxes"></g>
+    <g id="arrows"></g>
+    <g id="lids"></g>
+
+    <script>
+        // <![CDATA[
+        var svg = document.documentElement,
+            svgNS = svg.namespaceURI,
+            gridSize = 50, cornerRadius = 10, arrowWidth = 25,
+            arrowStartOutset = -0.5*gridSize, arrowStartInset = -15,
+            arrowEndOutset = 15, arrowEndInset = 0.5*gridSize;
+        // directions = ['right', 'down', 'left', 'up'];
+
+        function init() {
+            var lower = arrowWidth*0.4, higher = arrowWidth*1.4, diff = (higher-lower)*0.5;
+            var slopeShadow = document.getElementById('slopeShadow').children[0];
+            slopeShadow.setAttribute('d', 'M0,'+(gridSize-lower)*0.5+'l'+gridSize+','+(-diff)+'v'+higher+'l'+(-gridSize)+','+(-diff)+'v'+lower+'z');
+        }
+
+        function generateBox(type, x, y, width, height) {
+            var path = document.createElementNS(svg.namespaceURI, 'rect');
+            path.setAttribute('class', (type) ? 'box' : 'lid');
+            path.setAttribute('rx', cornerRadius);
+            path.setAttribute('ry', cornerRadius);
+            path.setAttribute('x', x*gridSize);
+            path.setAttribute('y', y*gridSize);
+            path.setAttribute('width', width*gridSize);
+            path.setAttribute('height', height*gridSize);
+            document.getElementById((type) ? 'boxes' : 'lids').appendChild(path);
+        }
+
+        function generateArrow(x, y, segments, slopes) {
+            var prevDir = segments[0].dir, xOffset = 0, yOffset = 0;
+            if(prevDir == 0 || prevDir == 2) {
+                xOffset = arrowStartInset;
+                if(prevDir == 2)
+                    xOffset *= -1;
+            } else {
+                yOffset = arrowStartInset;
+                if(prevDir == 3)
+                    yOffset *= -1;
+            }
+            var forward = 'M'+(x*gridSize+xOffset)+','+(y*gridSize+yOffset), backward = 'z';
+
+            function generateHead(dir, end) {
+                var tag, inset, outset, forwardDiagonal, backwardDiagonal,
+                    diagonalO = arrowWidth*0.5;
+                if(end) {
+                    inset = -arrowEndInset;
+                    outset = -arrowEndOutset;
+                    diagonalO *= -1;
+                } else {
+                    inset = arrowStartInset;
+                    outset = arrowStartOutset;
+                }
+                var parallel = outset, diagonalP = outset-inset;
+                if(dir == 0 || dir == 3) {
+                    diagonalO *= -1;
+                    parallel *= -1;
+                }
+                if(dir >= 2)
+                    diagonalP *= -1;
+                if(dir == 0 || dir == 2) {
+                    tag = 'h';
+                    forwardDiagonal = diagonalP+','+diagonalO;
+                    backwardDiagonal = (-diagonalP)+','+diagonalO;
+                } else {
+                    tag = 'v';
+                    forwardDiagonal = diagonalO+','+diagonalP;
+                    backwardDiagonal = diagonalO+','+(-diagonalP);
+                }
+                if(end) {
+                    forward += tag+parallel+'l'+forwardDiagonal;
+                    backward = 'l'+backwardDiagonal+tag+(-parallel)+backward;
+                } else {
+                    forward += 'l'+forwardDiagonal+tag+parallel;
+                    backward = tag+(-parallel)+'l'+backwardDiagonal+backward;
+                }
+            }
+
+            generateHead(prevDir, false);
+            for(var index in segments) {
+                var segment = segments[index];
+                nextDir = segment.dir;
+                if(prevDir != -1 && prevDir != nextDir) {
+                    var radiusF, radiusB, xF, yF,
+                        srcF = (prevDir >= 2) ? -1 : 1,
+                        dstF = (nextDir >= 2) ? -1 : 1,
+                        sweepFlag = ((prevDir+1)%4 == nextDir) ? 1 : 0;
+                    if(sweepFlag == 1) {
+                        xF = dstF;
+                        yF = srcF;
+                    } else {
+                        xF = srcF;
+                        yF = dstF;
+                    }
+                    radiusF = gridSize*0.5+arrowWidth*(sweepFlag-0.5);
+                    radiusB = gridSize*0.5+arrowWidth*(0.5-sweepFlag);
+                    forward += 'a'+radiusF+','+radiusF+',0,0,'+sweepFlag+','+(radiusF*xF)+','+(radiusF*yF);
+                    backward = 'a'+radiusB+','+radiusB+',0,0,'+(1-sweepFlag)+','+(-radiusB*xF)+','+(-radiusB*yF)+backward;
+                }
+                if(segment.distance > 0) {
+                    var tag = (nextDir == 0 || nextDir == 2) ? 'h' : 'v',
+                        distance = segment.distance*gridSize;
+                    if(nextDir >= 2)
+                        distance *= -1;
+                    forward += tag+distance;
+                    backward = tag+(-distance)+backward;
+                }
+                prevDir = nextDir;
+            }
+            generateHead(prevDir, true);
+
+            var group = document.getElementById('arrows');
+
+            function generateSlope(type, slope) {
+                var rect = document.createElementNS(svg.namespaceURI, 'rect');
+                rect.setAttribute('transform', 'translate('+slope.x*gridSize+','+(slope.y-0.5)*gridSize+') rotate('+(slope.dir*90)+','+gridSize*0.5+','+gridSize*0.5+')');
+                rect.setAttribute('fill', 'url(#'+type+')');
+                rect.setAttribute('width', gridSize);
+                rect.setAttribute('height', gridSize);
+                group.appendChild(rect);
+            }
+
+            for(var index in slopes)
+                generateSlope('slopeShadow', slopes[index]);
+
+            var path = document.createElementNS(svg.namespaceURI, 'path');
+            path.setAttribute('class', 'arrow');
+            path.setAttribute('filter', 'url(#arrowShadow)');
+            path.setAttribute('d', forward+backward);
+            group.appendChild(path);
+
+            for(var index in slopes) {
+                var slope = slopes[index];
+                generateSlope('slopeDiffuse', slope);
+
+                var label = document.createElementNS(svg.namespaceURI, 'text'),
+                    factor = (slope.dir == 2) ? -1 : 2;
+                label.setAttribute('class', 'label');
+                label.setAttribute('transform', 'translate('+slope.x*gridSize+','+(slope.y-0.5)*gridSize+') rotate('+(factor+1)/3*slope.dir*90+','+gridSize*0.5+','+gridSize*0.5+') translate('+factor*gridSize+', 31)');
+                label.textContent = 'Label';
+                group.appendChild(label);
+            }
+        }
+
+        init();
+        generateBox(true, 3, 1, 7, 6);
+        generateBox(true, 4, 2, 2, 2);
+        generateArrow(5, 3, [
+            { dir: 0, distance: 3 },
+            { dir: 1, distance: 2 },
+            { dir: 0, distance: 3 }
+        ], [
+            { dir: 0, x: 5, y: 3 },
+            { dir: 0, x: 9, y: 6 }
+        ]);
+        generateArrow(4, 5, [
+            { dir: 2, distance: 3 },
+        ], [
+            { dir: 2, x: 3, y: 5 }
+        ]);
+        generateArrow(1, 6, [
+            { dir: 0, distance: 3 },
+        ], [
+            { dir: 2, x: 3, y: 6 }
+        ]);
+        generateBox(false, 4, 2, 2, 2);
+
+        // ]]>
+    </script>
+</svg>
