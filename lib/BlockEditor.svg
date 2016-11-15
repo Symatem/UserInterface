@@ -1,6 +1,12 @@
 <?xml version="1.0" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny">
     <style>
+        @font-face {
+            font-family: Brandon-Grotesque-Regular;
+            src: url('webfonts/2DA05D_0_0.eot');
+            src: url('webfonts/2DA05D_0_0.eot?#iefix') format('embedded-opentype'), url('webfonts/2DA05D_0_0.woff2') format('woff2'), url('webfonts/2DA05D_0_0.woff') format('woff'), url('webfonts/2DA05D_0_0.ttf') format('truetype');
+        }
+
         svg {
             background: #DDD;
         }
@@ -22,7 +28,7 @@
         .label {
             fill: black;
             text-anchor: middle;
-            font-family: Helvetica-Bold;
+            font-family: Brandon-Grotesque-Regular,Helvetica-Bold,sans-serif;
             font-size: 18px;
         }
     </style>
@@ -80,10 +86,10 @@
 
     <!--<rect width="100%" height="100%" fill="url(#dots)" />-->
 
-    <g id="boxes"></g>
+    <g id="boxes"/>
     <rect width="100" height="100" x="200" y="100" rx="10" ry="10" fill="url(#diagonalStripes)" />
-    <g id="arrows"></g>
-    <g id="lids"></g>
+    <g id="arrows"/>
+    <g id="lids"/>
 
     <script>
         // <![CDATA[
@@ -100,16 +106,16 @@
             slopeShadow.setAttribute('d', 'M0,'+(gridSize-lower)*0.5+'l'+gridSize+','+(-diff)+'v'+higher+'l'+(-gridSize)+','+(-diff)+'v'+lower+'z');
         }
 
-        function generateBox(type, x, y, width, height) {
+        function generateBox(x, y, width, height, isLid = false) {
             var path = document.createElementNS(svg.namespaceURI, 'rect');
-            path.setAttribute('class', (type) ? 'box' : 'lid');
+            path.setAttribute('class', (isLid) ? 'lid' : 'box');
             path.setAttribute('rx', cornerRadius);
             path.setAttribute('ry', cornerRadius);
             path.setAttribute('x', x*gridSize);
             path.setAttribute('y', y*gridSize);
             path.setAttribute('width', width*gridSize);
             path.setAttribute('height', height*gridSize);
-            document.getElementById((type) ? 'boxes' : 'lids').appendChild(path);
+            document.getElementById((isLid) ? 'lids' : 'boxes').appendChild(path);
         }
 
         function generateArrow(x, y, segments, slopes) {
@@ -258,8 +264,8 @@
         }
 
         init();
-        generateBox(true, 3, 1, 7, 6);
-        generateBox(true, 4, 2, 2, 2);
+        generateBox(3, 1, 7, 6);
+        generateBox(4, 2, 2, 2);
         generateArrow(4, 3, [
             { dir: 0, distance: 3 },
             { dir: 1, distance: 2 },
@@ -278,7 +284,7 @@
         ], [
             { dir: 2, x: 3, y: 5, lable: 'Input' }
         ]);
-        generateBox(false, 4, 2, 2, 2);
+        generateBox(4, 2, 2, 2, isLid = true);
 
         // ]]>
     </script>
