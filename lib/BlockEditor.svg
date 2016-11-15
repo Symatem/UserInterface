@@ -2,13 +2,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny">
     <style>
         /* Uncomment to enable font:
-        @import url("//hello.myfonts.net/count/327c29");
+        @import url("//hello.myfonts.net/count/327c29");*/
         @font-face {
             font-family: Brandon-Grotesque-Regular;
             src: url('webfonts/2DA05D_0_0.eot');
             src: url('webfonts/2DA05D_0_0.eot?#iefix') format('embedded-opentype'), url('webfonts/2DA05D_0_0.woff2') format('woff2'), url('webfonts/2DA05D_0_0.woff') format('woff'), url('webfonts/2DA05D_0_0.ttf') format('truetype');
         }
-        */
+
 
         svg {
             background: #DDD;
@@ -33,6 +33,7 @@
             text-anchor: middle;
             font-family: Brandon-Grotesque-Regular,Helvetica-Bold,sans-serif;
             font-size: 18px;
+            font-weight: bold;
         }
     </style>
 
@@ -92,56 +93,98 @@
     <g id="boxes"/>
     <rect width="100" height="100" x="200" y="100" rx="10" ry="10" fill="url(#diagonalStripes)" />
     <g id="arrows"/>
+    <g id="labels"/>
     <g id="lids"/>
 
     <script>
         // <![CDATA[
-        var svg = document.documentElement,
-            svgNS = svg.namespaceURI,
-            gridSize = 50, labelOffset = gridSize, cornerRadius = 10, arrowWidth = 25,
-            arrowStartOutset = -0.5*gridSize, arrowStartInset = -15,
-            arrowEndOutset = 15, arrowEndInset = 0.5*gridSize;
+        "use strict";
+
+        const svg = document.documentElement;
+        const svgNS = svg.namespaceURI;
+        const gridSize = 50;
+        const labelHOffset = gridSize;
+        const labelVOffset = 6;
+        const cornerRadius = 10;
+        const arrowWidth = 25;
+        const arrowStartOutset = -0.5 * gridSize;
+        const arrowStartInset = -15;
+        const arrowEndOutset = 15;
+        const arrowEndInset = 0.5 * gridSize;
         // directions = ['right', 'down', 'left', 'up'];
 
         function init() {
-            var lower = arrowWidth*0.4, higher = arrowWidth*1.4, diff = (higher-lower)*0.5;
-            var slopeShadow = document.getElementById('slopeShadow').children[0];
-            slopeShadow.setAttribute('d', 'M0,'+(gridSize-lower)*0.5+'l'+gridSize+','+(-diff)+'v'+higher+'l'+(-gridSize)+','+(-diff)+'v'+lower+'z');
+            const lower = arrowWidth * 0.4, higher = arrowWidth * 1.4, diff = (higher - lower) * 0.5,
+                slopeShadow = document.getElementById('slopeShadow').children[0];
+            slopeShadow.setAttribute('d', 'M0,' + (gridSize - lower) * 0.5 + 'l' + gridSize + ',' + (-diff) + 'v' + higher + 'l' + (-gridSize) + ',' + (-diff) + 'v' + lower + 'z');
         }
 
-        function generateBox(x, y, width, height, isLid = false) {
-            var path = document.createElementNS(svg.namespaceURI, 'rect');
-            path.setAttribute('class', (isLid) ? 'lid' : 'box');
+        function generateBlock(block) {
+            const path = document.createElementNS(svg.namespaceURI, 'rect');
+            path.setAttribute('class', (block.isLid) ? 'lid' : 'box');
             path.setAttribute('rx', cornerRadius);
             path.setAttribute('ry', cornerRadius);
-            path.setAttribute('x', x*gridSize);
-            path.setAttribute('y', y*gridSize);
-            path.setAttribute('width', width*gridSize);
-            path.setAttribute('height', height*gridSize);
-            document.getElementById((isLid) ? 'lids' : 'boxes').appendChild(path);
+            path.setAttribute('x', block.x * gridSize);
+            path.setAttribute('y', block.y * gridSize);
+            path.setAttribute('width', block.width * gridSize);
+            path.setAttribute('height', block.height * gridSize);
+            document.getElementById((block.isLid) ? 'lids' : 'boxes').appendChild(path);
+
+            const group = document.getElementById('labels');
+            for (var index in block.ports) {
+                const port = block.ports[index];
+
+                var label = document.createElementNS(svg.namespaceURI, 'text'),
+                    angle = port.dir * 90,
+                    xOffset = (block.x + port.x) * gridSize, yOffset = (block.y + port.y) * gridSize;
+                switch (port.dir) {
+                    case 0:
+                        xOffset += labelHOffset;
+                        yOffset += labelVOffset;
+                        break;
+                    case 1:
+                        xOffset -= labelVOffset;
+                        yOffset += labelHOffset;
+                        break;
+                    case 2:
+                        angle = 0;
+                        xOffset -= labelHOffset;
+                        yOffset += labelVOffset;
+                        break;
+                    case 3:
+                        xOffset += labelVOffset;
+                        yOffset -= labelHOffset;
+                        break;
+                }
+                label.setAttribute('class', 'label');
+                // label.setAttribute('text-anchor', (slope.dir == 2) ? 'end' : 'start');
+                label.setAttribute('transform', 'translate(' + xOffset + ',' + yOffset + ') rotate(' + angle + ')');
+                label.textContent = port.label;
+                group.appendChild(label);
+            }
         }
 
-        function generateArrow(x, y, segments, slopes) {
-            var prevDir = segments[0].dir, xOffset = 0, yOffset = 0;
-            if(prevDir == 0 || prevDir == 2) {
+        function generateArrow(arrow) {
+            var prevDir = arrow.segments[0].dir, xOffset = 0, yOffset = 0;
+            if (prevDir == 0 || prevDir == 2) {
                 xOffset = arrowStartInset;
-                if(prevDir == 2)
+                if (prevDir == 2)
                     xOffset *= -1;
                 else
                     xOffset += gridSize;
             } else {
                 yOffset = arrowStartInset;
-                if(prevDir == 3)
+                if (prevDir == 3)
                     yOffset *= -1;
                 else
                     yOffset += gridSize;
             }
-            var forward = 'M'+(x*gridSize+xOffset)+','+(y*gridSize+yOffset), backward = 'z';
+            var forward = 'M' + (arrow.x * gridSize + xOffset) + ',' + (arrow.y * gridSize + yOffset), backward = 'z';
 
             function generateCap(dir, end) {
                 var tag, inset, outset, forwardDiagonal, backwardDiagonal,
-                    diagonalO = arrowWidth*0.5;
-                if(end) {
+                    diagonalO = arrowWidth * 0.5;
+                if (end) {
                     inset = -arrowEndInset;
                     outset = -arrowEndOutset;
                     diagonalO *= -1;
@@ -149,146 +192,137 @@
                     inset = arrowStartInset;
                     outset = arrowStartOutset;
                 }
-                var parallel = outset, diagonalP = outset-inset;
-                if(dir == 0 || dir == 1) {
+                var parallel = outset, diagonalP = outset - inset;
+                if (dir == 0 || dir == 1) {
                     diagonalO *= -1;
                     parallel *= -1;
                 }
-                if(dir >= 2)
+                if (dir >= 2)
                     diagonalP *= -1;
-                if(dir == 0 || dir == 2) {
+                if (dir == 0 || dir == 2) {
                     tag = 'h';
-                    forwardDiagonal = diagonalP+','+diagonalO;
-                    backwardDiagonal = (-diagonalP)+','+diagonalO;
+                    forwardDiagonal = diagonalP + ',' + diagonalO;
+                    backwardDiagonal = (-diagonalP) + ',' + diagonalO;
                 } else {
                     tag = 'v';
-                    forwardDiagonal = diagonalO+','+diagonalP;
-                    backwardDiagonal = diagonalO+','+(-diagonalP);
+                    forwardDiagonal = diagonalO + ',' + diagonalP;
+                    backwardDiagonal = diagonalO + ',' + (-diagonalP);
                 }
-                if(end) {
-                    forward += tag+parallel+'l'+forwardDiagonal;
-                    backward = 'l'+backwardDiagonal+tag+(-parallel)+backward;
+                if (end) {
+                    forward += tag + parallel + 'l' + forwardDiagonal;
+                    backward = 'l' + backwardDiagonal + tag + (-parallel) + backward;
                 } else {
-                    forward += 'l'+forwardDiagonal+tag+parallel;
-                    backward = tag+(-parallel)+'l'+backwardDiagonal+backward;
+                    forward += 'l' + forwardDiagonal + tag + parallel;
+                    backward = tag + (-parallel) + 'l' + backwardDiagonal + backward;
                 }
             }
 
             generateCap(prevDir, false);
-            for(var index in segments) {
-                var segment = segments[index];
-                nextDir = segment.dir;
-                if(prevDir != -1 && prevDir != nextDir) {
+            for (const index in arrow.segments) {
+                const segment = arrow.segments[index],
+                    nextDir = segment.dir;
+                if (prevDir != -1 && prevDir != nextDir) {
                     var radiusF, radiusB, xF, yF,
                         srcF = (prevDir >= 2) ? -1 : 1,
                         dstF = (nextDir >= 2) ? -1 : 1,
-                        sweepFlag = ((prevDir+1)%4 == nextDir) ? 1 : 0;
-                    if(sweepFlag == 1) {
+                        sweepFlag = ((prevDir + 1) % 4 == nextDir) ? 1 : 0;
+                    if (sweepFlag == 1) {
                         xF = dstF;
                         yF = srcF;
                     } else {
                         xF = srcF;
                         yF = dstF;
                     }
-                    radiusF = gridSize*0.5+arrowWidth*(sweepFlag-0.5);
-                    radiusB = gridSize*0.5+arrowWidth*(0.5-sweepFlag);
-                    forward += 'a'+radiusF+','+radiusF+',0,0,'+sweepFlag+','+(radiusF*xF)+','+(radiusF*yF);
-                    backward = 'a'+radiusB+','+radiusB+',0,0,'+(1-sweepFlag)+','+(-radiusB*xF)+','+(-radiusB*yF)+backward;
+                    radiusF = gridSize * 0.5 + arrowWidth * (sweepFlag - 0.5);
+                    radiusB = gridSize * 0.5 + arrowWidth * (0.5 - sweepFlag);
+                    forward += 'a' + radiusF + ',' + radiusF + ',0,0,' + sweepFlag + ',' + (radiusF * xF) + ',' + (radiusF * yF);
+                    backward = 'a' + radiusB + ',' + radiusB + ',0,0,' + (1 - sweepFlag) + ',' + (-radiusB * xF) + ',' + (-radiusB * yF) + backward;
                 }
-                if(segment.distance > 0) {
+                if (segment.distance > 0) {
                     var tag = (nextDir == 0 || nextDir == 2) ? 'h' : 'v',
-                        distance = segment.distance*gridSize;
-                    if(nextDir >= 2)
+                        distance = segment.distance * gridSize;
+                    if (nextDir >= 2)
                         distance *= -1;
-                    forward += tag+distance;
-                    backward = tag+(-distance)+backward;
+                    forward += tag + distance;
+                    backward = tag + (-distance) + backward;
                 }
                 prevDir = nextDir;
             }
             generateCap(prevDir, true);
 
-            var group = document.getElementById('arrows');
+            const group = document.getElementById('arrows');
 
             function generateSlope(type, slope) {
                 var rect = document.createElementNS(svg.namespaceURI, 'rect'),
-                    xOffset = slope.x*gridSize, yOffset = slope.y*gridSize;
-                if(slope.dir == 1 || slope.dir == 3)
-                    xOffset -= gridSize*0.5;
+                    xOffset = slope.x * gridSize, yOffset = slope.y * gridSize;
+                if (slope.dir == 1 || slope.dir == 3)
+                    xOffset -= gridSize * 0.5;
                 else
-                    yOffset -= gridSize*0.5;
-                rect.setAttribute('transform', 'translate('+xOffset+','+yOffset+') rotate('+(slope.dir*90)+','+gridSize*0.5+','+gridSize*0.5+')');
-                rect.setAttribute('fill', 'url(#'+type+')');
+                    yOffset -= gridSize * 0.5;
+                rect.setAttribute('transform', 'translate(' + xOffset + ',' + yOffset + ') rotate(' + (slope.dir * 90) + ',' + gridSize * 0.5 + ',' + gridSize * 0.5 + ')');
+                rect.setAttribute('fill', 'url(#' + type + ')');
                 rect.setAttribute('width', gridSize);
                 rect.setAttribute('height', gridSize);
                 group.appendChild(rect);
             }
 
-            for(var index in slopes)
-                generateSlope('slopeShadow', slopes[index]);
+            for (const index in arrow.slopes)
+                generateSlope('slopeShadow', arrow.slopes[index]);
 
             var path = document.createElementNS(svg.namespaceURI, 'path');
             path.setAttribute('class', 'arrow');
             path.setAttribute('filter', 'url(#arrowShadow)');
-            path.setAttribute('d', forward+backward);
+            path.setAttribute('d', forward + backward);
             group.appendChild(path);
 
-            for(var index in slopes) {
-                var slope = slopes[index];
-                generateSlope('slopeDiffuse', slope);
-
-                var label = document.createElementNS(svg.namespaceURI, 'text'),
-                    angle = slope.dir*90,
-                    xOffset = slope.x*gridSize, yOffset = slope.y*gridSize;
-                switch(slope.dir) {
-                    case 0:
-                        xOffset += gridSize+labelOffset;
-                        yOffset += 6;
-                        break;
-                    case 1:
-                        xOffset -= 6;
-                        yOffset += gridSize+labelOffset;
-                        break;
-                    case 2:
-                        angle = 0;
-                        xOffset -= labelOffset;
-                        yOffset += 6;
-                        break;
-                    case 3:
-                        xOffset += 6;
-                        yOffset -= labelOffset;
-                        break;
-                }
-                label.setAttribute('class', 'label');
-                // label.setAttribute('text-anchor', (slope.dir == 2) ? 'end' : 'start');
-                label.setAttribute('transform', 'translate('+xOffset+','+yOffset+') rotate('+angle+')');
-                label.textContent = slope.lable;
-                group.appendChild(label);
-            }
+            for (const index in arrow.slopes)
+                generateSlope('slopeDiffuse', arrow.slopes[index]);
         }
 
         init();
-        generateBox(3, 1, 7, 6);
-        generateBox(4, 2, 2, 2);
-        generateArrow(4, 3, [
-            { dir: 0, distance: 3 },
-            { dir: 1, distance: 2 },
-            { dir: 0, distance: 3 }
-        ], [
-            { dir: 0, x: 5, y: 3, lable: 'Things' },
-            { dir: 0, x: 9, y: 6, lable: 'Happen' }
-        ]);
-        generateArrow(4, 6, [
-            { dir: 2, distance: 3 },
-        ], [
-            { dir: 2, x: 3, y: 6, lable: 'Output' }
-        ]);
-        generateArrow(0, 5, [
-            { dir: 0, distance: 3 },
-        ], [
-            { dir: 2, x: 3, y: 5, lable: 'Input' }
-        ]);
-        generateBox(4, 2, 2, 2, isLid = true);
 
+        const blocks = [
+            {
+                x: 3, y: 1,
+                width: 7, height: 6,
+                ports: [
+                    {x: 7, y: 5, dir: 0, label: 'Happen'}
+                ]
+            },
+            {x: 4, y: 2, width: 2, height: 2},
+            {x: 4, y: 2, width: 2, height: 2, isLid: true}
+        ];
+
+        const arrows = [
+            {
+                x: 4, y: 3,
+                segments: [
+                    {dir: 0, distance: 3},
+                    {dir: 1, distance: 2},
+                    {dir: 0, distance: 3}
+                ],
+                slopes: [
+                    {dir: 0, x: 5, y: 3},
+                    {dir: 0, x: 9, y: 6}
+                ]
+            },
+            {
+                x: 4, y: 6,
+                segments: [{dir: 2, distance: 3}],
+                slopes: [{dir: 2, x: 3, y: 6}]
+            },
+            {
+                x: 0, y: 5,
+                segments: [{dir: 0, distance: 3}],
+                slopes: [{dir: 2, x: 3, y: 5}]
+            }];
+
+
+        for (const index in blocks)
+            generateBlock(blocks[index]);
+
+        for (const index in arrows)
+            generateArrow(arrows[index])
         // ]]>
     </script>
 </svg>
