@@ -1,18 +1,20 @@
 <?xml version="1.0" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny" style="background-color: #DDD;">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny">
     <style>
+        svg {
+            background: #DDD;
+        }
         .lid {
             filter: url(#lidShadow);
-            transition: fill-opacity 1.0s;
             fill: #DDD;
+            transition: fill-opacity 1.0s;
         }
         .lid:hover {
             fill-opacity: 0.0;
         }
         .box {
             filter: url(#boxShadow);
-            fill: #000;
-            fill-opacity: 0.075;
+            fill: #CCC;
         }
         .arrow {
             fill: #FFF;
@@ -27,24 +29,18 @@
 
     <defs>
         <filter id="boxShadow">
-            <feComponentTransfer in="SourceAlpha" result="blur-alpha">
-                <feFuncA type="linear" slope="100" />
-            </feComponentTransfer>
-            <feGaussianBlur in="blur-alpha" stdDeviation="5" result="blur" />
+            <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur" />
             <feComponentTransfer in="blur" result="inverse-blur">
                 <feFuncA type="linear" slope="-1" intercept="1" />
             </feComponentTransfer>
-            <feComponentTransfer in="SourceAlpha" result="clipping-alpha">
-                <feFuncA type="linear" slope="5" />
-            </feComponentTransfer>
-            <feComposite operator="in" in="clipping-alpha" in2="inverse-blur" result="clipped-blur" />
+            <feComposite operator="in" in="SourceAlpha" in2="inverse-blur" result="clipped-blur" />
             <feComposite operator="over" in="clipped-blur" in2="SourceGraphic" />
         </filter>
         <filter id="lidShadow" x="-50%" y="-50%" width="200%" height="200%">
             <feComponentTransfer in="SourceAlpha" result="soft-alpha">
-                <feFuncA type="linear" slope="0.2" intercept="0" />
+                <feFuncA type="linear" slope="0.4" intercept="0" />
             </feComponentTransfer>
-            <feGaussianBlur in="soft-alpha" result="blur" stdDeviation="5" />
+            <feGaussianBlur in="soft-alpha" result="blur" stdDeviation="3" />
             <feComposite operator="over" in="SourceGraphic" in2="blur" />
         </filter>
         <filter id="arrowShadow">
@@ -77,10 +73,15 @@
         <pattern id="diagonalStripes" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45) translate(5 0)">
             <rect x="0" y="0" width="8" height="16" opacity="0.1" />
         </pattern>
+        <pattern id="dots" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+            <rect x="0" y="0" width="2" height="2" opacity="0.2" />
+        </pattern>
     </defs>
 
-    <rect width="100" height="100" x="200" y="100" rx="10" ry="10" fill="url(#diagonalStripes)" />
+    <!--<rect width="100%" height="100%" fill="url(#dots)" />-->
+
     <g id="boxes"></g>
+    <rect width="100" height="100" x="200" y="100" rx="10" ry="10" fill="url(#diagonalStripes)" />
     <g id="arrows"></g>
     <g id="lids"></g>
 
@@ -88,7 +89,7 @@
         // <![CDATA[
         var svg = document.documentElement,
             svgNS = svg.namespaceURI,
-            gridSize = 50, cornerRadius = 10, arrowWidth = 25,
+            gridSize = 50, labelOffset = gridSize, cornerRadius = 10, arrowWidth = 25,
             arrowStartOutset = -0.5*gridSize, arrowStartInset = -15,
             arrowEndOutset = 15, arrowEndInset = 0.5*gridSize;
         // directions = ['right', 'down', 'left', 'up'];
@@ -117,14 +118,18 @@
                 xOffset = arrowStartInset;
                 if(prevDir == 2)
                     xOffset *= -1;
+                else
+                    xOffset += gridSize;
             } else {
                 yOffset = arrowStartInset;
                 if(prevDir == 3)
                     yOffset *= -1;
+                else
+                    yOffset += gridSize;
             }
             var forward = 'M'+(x*gridSize+xOffset)+','+(y*gridSize+yOffset), backward = 'z';
 
-            function generateHead(dir, end) {
+            function generateCap(dir, end) {
                 var tag, inset, outset, forwardDiagonal, backwardDiagonal,
                     diagonalO = arrowWidth*0.5;
                 if(end) {
@@ -136,7 +141,7 @@
                     outset = arrowStartOutset;
                 }
                 var parallel = outset, diagonalP = outset-inset;
-                if(dir == 0 || dir == 3) {
+                if(dir == 0 || dir == 1) {
                     diagonalO *= -1;
                     parallel *= -1;
                 }
@@ -160,7 +165,7 @@
                 }
             }
 
-            generateHead(prevDir, false);
+            generateCap(prevDir, false);
             for(var index in segments) {
                 var segment = segments[index];
                 nextDir = segment.dir;
@@ -191,13 +196,18 @@
                 }
                 prevDir = nextDir;
             }
-            generateHead(prevDir, true);
+            generateCap(prevDir, true);
 
             var group = document.getElementById('arrows');
 
             function generateSlope(type, slope) {
-                var rect = document.createElementNS(svg.namespaceURI, 'rect');
-                rect.setAttribute('transform', 'translate('+slope.x*gridSize+','+(slope.y-0.5)*gridSize+') rotate('+(slope.dir*90)+','+gridSize*0.5+','+gridSize*0.5+')');
+                var rect = document.createElementNS(svg.namespaceURI, 'rect'),
+                    xOffset = slope.x*gridSize, yOffset = slope.y*gridSize;
+                if(slope.dir == 1 || slope.dir == 3)
+                    xOffset -= gridSize*0.5;
+                else
+                    yOffset -= gridSize*0.5;
+                rect.setAttribute('transform', 'translate('+xOffset+','+yOffset+') rotate('+(slope.dir*90)+','+gridSize*0.5+','+gridSize*0.5+')');
                 rect.setAttribute('fill', 'url(#'+type+')');
                 rect.setAttribute('width', gridSize);
                 rect.setAttribute('height', gridSize);
@@ -218,10 +228,31 @@
                 generateSlope('slopeDiffuse', slope);
 
                 var label = document.createElementNS(svg.namespaceURI, 'text'),
-                    factor = (slope.dir == 2) ? -1 : 2;
+                    angle = slope.dir*90,
+                    xOffset = slope.x*gridSize, yOffset = slope.y*gridSize;
+                switch(slope.dir) {
+                    case 0:
+                        xOffset += gridSize+labelOffset;
+                        yOffset += 6;
+                        break;
+                    case 1:
+                        xOffset -= 6;
+                        yOffset += gridSize+labelOffset;
+                        break;
+                    case 2:
+                        angle = 0;
+                        xOffset -= labelOffset;
+                        yOffset += 6;
+                        break;
+                    case 3:
+                        xOffset += 6;
+                        yOffset -= labelOffset;
+                        break;
+                }
                 label.setAttribute('class', 'label');
-                label.setAttribute('transform', 'translate('+slope.x*gridSize+','+(slope.y-0.5)*gridSize+') rotate('+(factor+1)/3*slope.dir*90+','+gridSize*0.5+','+gridSize*0.5+') translate('+factor*gridSize+', 31)');
-                label.textContent = 'Label';
+                // label.setAttribute('text-anchor', (slope.dir == 2) ? 'end' : 'start');
+                label.setAttribute('transform', 'translate('+xOffset+','+yOffset+') rotate('+angle+')');
+                label.textContent = slope.lable;
                 group.appendChild(label);
             }
         }
@@ -229,23 +260,23 @@
         init();
         generateBox(true, 3, 1, 7, 6);
         generateBox(true, 4, 2, 2, 2);
-        generateArrow(5, 3, [
+        generateArrow(4, 3, [
             { dir: 0, distance: 3 },
             { dir: 1, distance: 2 },
             { dir: 0, distance: 3 }
         ], [
-            { dir: 0, x: 5, y: 3 },
-            { dir: 0, x: 9, y: 6 }
+            { dir: 0, x: 5, y: 3, lable: 'Things' },
+            { dir: 0, x: 9, y: 6, lable: 'Happen' }
         ]);
-        generateArrow(4, 5, [
+        generateArrow(4, 6, [
             { dir: 2, distance: 3 },
         ], [
-            { dir: 2, x: 3, y: 5 }
+            { dir: 2, x: 3, y: 6, lable: 'Output' }
         ]);
-        generateArrow(1, 6, [
+        generateArrow(0, 5, [
             { dir: 0, distance: 3 },
         ], [
-            { dir: 2, x: 3, y: 6 }
+            { dir: 2, x: 3, y: 5, lable: 'Input' }
         ]);
         generateBox(false, 4, 2, 2, 2);
 
