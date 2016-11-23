@@ -85,23 +85,30 @@
 
 
 
-#SymatemVisualizer {
-    height: 532px;
+#TripleEditor {
+    height: 350px;
 }
 
-#SymatemVisualizer .entity {
+#TripleEditor div {
+    margin: 20px;
+    padding: 10px;
+    border-radius: 5px;
+    background: white;
+}
+
+#TripleEditor .entity {
     stroke: #f44;
 }
 
-#SymatemVisualizer .attribute {
+#TripleEditor .attribute {
     stroke: #4f8;
 }
 
-#SymatemVisualizer .value {
+#TripleEditor .value {
     stroke: #48f;
 }
 
-#SymatemVisualizer .disabled {
+#TripleEditor .disabled {
     fill: #aaa;
     color: #aaa;
 }

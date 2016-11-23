@@ -1,4 +1,4 @@
-SymatemVisualizer = require './SymatemVisualizer.js'
+TripleEditor = require './TripleEditor.js'
 {CompositeDisposable} = require 'atom'
 
 module.exports = SymatemIde =
@@ -9,9 +9,9 @@ module.exports = SymatemIde =
 
   activate: (state) ->
     @element = document.createElement('div')
-    @element.setAttribute('id', 'SymatemVisualizer')
+    @element.setAttribute('id', 'TripleEditor')
     @panel = atom.workspace.addBottomPanel(item:@element, visible:true)
-    @symatemIdeView = new SymatemVisualizer(@element, state.symatemVisualizerState)
+    @symatemIdeView = new TripleEditor(@element, state.symatemVisualizerState)
     @subscriptions = new CompositeDisposable
     @subscriptions.add atom.commands.add 'atom-workspace', 'symatem-ide:toggle': => @toggle()
 

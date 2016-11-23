@@ -1,5 +1,0 @@
-'.source.Symatem-HRL':
-
-  'Instruction':
-    'prefix': '(Procedure'
-    'body': '(Procedure $1; Dynamic ($2); Static ($3); Next)'
