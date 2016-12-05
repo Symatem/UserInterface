@@ -19,6 +19,7 @@
 .WiredPanels {
     padding: 0px;
     margin: 0px;
+    overflow: hidden;
     position: relative;
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -40,11 +41,13 @@
     font-variant: normal;
     fill: white;
     color: white;
+    pointer-events: none;
 }
 
 .WiredPanels .panel {
     stroke-width: 1;
     fill: transparent;
+    pointer-events: all;
 }
 
 .WiredPanels rect.panel.selected {
@@ -58,6 +61,7 @@
 .WiredPanels .socket {
     stroke-width: 2;
     fill: transparent;
+    pointer-events: all;
 }
 
 .WiredPanels .socket.selected {
@@ -73,6 +77,7 @@
     stroke-width: 4;
     stroke-opacity: 0.6;
     fill: none;
+    pointer-events: all;
 }
 
 .WiredPanels .wire:hover {
@@ -85,30 +90,34 @@
 
 
 
-#TripleEditor {
-    height: 350px;
+#OntologyEditor {
+    width: 100%;
+    height: 340px;
+    display: inline-block;
+    border-radius: 0.3em;
+    background-color: rgb(39, 40, 34);
 }
 
-#TripleEditor div {
-    margin: 20px;
+#OntologyEditor div {
+    margin: 10px;
     padding: 10px;
     border-radius: 5px;
     background: white;
 }
 
-#TripleEditor .entity {
+#OntologyEditor .entity {
     stroke: #f44;
 }
 
-#TripleEditor .attribute {
+#OntologyEditor .attribute {
     stroke: #4f8;
 }
 
-#TripleEditor .value {
+#OntologyEditor .value {
     stroke: #48f;
 }
 
-#TripleEditor .disabled {
+#OntologyEditor .disabled {
     fill: #aaa;
     color: #aaa;
 }
