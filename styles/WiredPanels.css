@@ -42,6 +42,7 @@
     fill: white;
     color: white;
     pointer-events: none;
+    transition: stroke-width 0.15s, stroke-opacity 0.15s;
 }
 
 .WiredPanels .panel {
