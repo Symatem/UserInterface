@@ -41,14 +41,16 @@
     font-variant: normal;
     fill: white;
     color: white;
-    pointer-events: none;
     transition: stroke-width 0.15s, stroke-opacity 0.15s;
+}
+
+.WiredPanels text,.noHover {
+    pointer-events: none;
 }
 
 .WiredPanels .panel {
     stroke-width: 1;
     fill: transparent;
-    pointer-events: all;
 }
 
 .WiredPanels rect.panel.selected {
@@ -62,7 +64,6 @@
 .WiredPanels .socket {
     stroke-width: 2;
     fill: transparent;
-    pointer-events: all;
 }
 
 .WiredPanels .socket.selected {
@@ -78,7 +79,6 @@
     stroke-width: 4;
     stroke-opacity: 0.6;
     fill: none;
-    pointer-events: all;
 }
 
 .WiredPanels .wire:hover {
