@@ -17,6 +17,8 @@
 }
 
 .WiredPanels {
+    width: 100%;
+    height: 100%;
     padding: 0px;
     margin: 0px;
     overflow: hidden;
@@ -26,12 +28,6 @@
     -ms-user-select: none;
     user-select: none;
     -o-user-select: none;
-}
-
-.WiredPanels svg {
-    width: 100%;
-    height: 100%;
-    padding: 0;
 }
 
 .WiredPanels * {
@@ -104,6 +100,7 @@
     padding: 10px;
     border-radius: 5px;
     background: white;
+    position: relative;
 }
 
 #OntologyEditor .entity {
