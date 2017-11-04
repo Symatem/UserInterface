@@ -1,0 +1,26 @@
+<!DOCTYPE "html">
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <link rel="stylesheet" href="../WiredPanels/WiredPanels.css">
+        <link rel="stylesheet" href="../WiredPanels/Colors/Neon.css">
+        <link rel="stylesheet" href="main.css">
+        <script type="module" src="main.js"></script>
+    </head>
+    <body>
+        <div class="layer"></div>
+        <div class="layer">
+            <object type="image/svg+xml" width="40%" data="logoAnimation.svg" onload="logoLoaded();"></object>
+            <script>
+                function logoLoaded() {
+                    const object = document.getElementsByTagName('object')[0],
+                          color = document.styleSheets[1].cssRules[2].style['stroke'];
+                    object.contentDocument.getElementsByTagName('g')[0].setAttribute('stroke', color);
+                    window.setTimeout(function() {
+                        object.parentNode.parentNode.removeChild(object.parentNode);
+                    }, 2000);
+                }
+            </script>
+        </div>
+    </body>
+</html>
