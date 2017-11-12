@@ -80,7 +80,6 @@ function unlinkedTriple(nodesToRemove, triple, panel) {
 }
 
 function setPanelVisibility(panel, visible) {
-    console.log(panel.symbol, visible);
     if(visible)
         panelIndex.set(panel.symbol, panel);
     else
@@ -141,7 +140,7 @@ function getOppositeSocket(socket, triple) {
     return oppositeSocket;
 }
 
-const wiredPanels = new WiredPanels(document.getElementsByTagName('div')[0], {}, {
+const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
     'activate': function() {
         const nodesToAdd = new Set(), nodesToRemove = new Set(), updateData = new Set(), panels = new Set();
         for(const node of wiredPanels.selection)

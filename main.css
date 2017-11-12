@@ -10,4 +10,29 @@ body {
     position: absolute;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+}
+
+.box {
+    color: white;
+    background-color: #001122;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid white;
+    overflow: scroll;
+    max-height: calc(100% - 85px);
+}
+
+#modal {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+#menu {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+:focus {
+    outline: none;
 }
