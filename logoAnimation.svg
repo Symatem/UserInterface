@@ -21,15 +21,6 @@
             <use xlink:href="#maskPath2"/>
             <use xlink:href="#maskPath0"/>
         </mask>
-        <style>
-            @keyframes fadeOut {
-                0% { opacity: 1; }
-                100% { opacity: 0; }
-            }
-            .fadeOut {
-                animation: fadeOut 0.5s ease-in forwards;
-            }
-        </style>
     </defs>
     <g fill="none" stroke="black" stroke-width="9">
         <circle cx="0" cy="0"/>
@@ -39,10 +30,11 @@
     </g>
     <script type="text/javascript"><![CDATA[
         const w = Math.E / (2 * Math.PI), loopCut = 0.355, loopRadius = 75,
-              loopDelay = 0.025, circleRadius = 100, circleTime = 0.1,
-              circle = document.getElementsByTagName('circle')[1],
-              paths = document.getElementsByTagName('path'),
-              masks = document.getElementsByTagName('mask');
+              loopDelay = 0.025, circleRadius = 100, circleTime = 0.1, fadeOutTime = 0.2,
+              svg = document.getElementsByTagName('svg')[0],
+              circle = svg.getElementsByTagName('circle')[1],
+              paths = svg.getElementsByTagName('path'),
+              masks = svg.getElementsByTagName('mask');
 
         function appendPoint(path, t) {
             const angle = Math.PI*2*t,
@@ -59,17 +51,20 @@
 
         let t = 0;
         function animate() {
-            if(t >= loopDelay+1/3) {
-                document.getElementsByTagName('svg')[0].classList.add('fadeOut');
-                return;
-            }
-            window.requestAnimationFrame(animate);
             if(t < circleTime)
                 circle.setAttribute('r', circleRadius*(t/circleTime));
-            if(t > loopDelay)
+            if(t > loopDelay+1/3) {
+                svg.style.opacity = 1-(t-loopDelay-1/3)/fadeOutTime;
+            } else if(t > loopDelay)
                 for(let i = 0; i < 3; ++i)
                     appendPoint(paths[3+i], t-loopDelay+loopCut+(i-1)/3);
+            if(t > loopDelay+1/3+fadeOutTime) {
+                if(svg.finished)
+                    svg.finished();
+                return;
+            }
             t += 0.005;
+            window.requestAnimationFrame(animate);
         }
         animate();
     ]]></script>

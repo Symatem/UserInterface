@@ -4,6 +4,39 @@ const backend = new NativeBackend(),
       symbolSpace = backend.createSymbolSpace(),
       panelIndex = new Map(), labelIndex = new Map();
 
+function makeListCollapsable(ul) {
+    for(const child of ul.getElementsByTagName('ul'))
+        if(child.parentNode.parentNode === ul)
+            makeListCollapsable(child);
+
+    const parent = ul.parentNode, triangle = parent.getElementsByClassName('triangle')[0];
+    if(!triangle || triangle.parentNode !== parent)
+        return;
+
+    const height = ul.offsetHeight;
+    ul.setAttribute('height', height);
+    ul.style.height = 0;
+
+    function click(event) {
+        let height = parseInt(ul.getAttribute('height'));
+        const collapse = parent.classList.contains('open');
+        if(collapse)
+            parent.classList.remove('open');
+        else
+            parent.classList.add('open');
+        ul.style.height = (collapse) ? 0 : height;
+        if(collapse)
+            height *= -1;
+        for(let ul = parent.parentNode; ul.tagName === 'UL'; ul = ul.parentNode.parentNode) {
+            const value = parseInt(ul.getAttribute('height'))+height;
+            ul.setAttribute('height', value);
+            ul.style.height = value;
+        }
+        event.stopPropagation();
+    };
+    triangle.addEventListener('click', click);
+    triangle.nextElementSibling.addEventListener('click', click);
+}
 
 function labelForData(data, symbol) {
     return data ? NativeBackend.encodeText(data) : `#${symbol}`;
@@ -21,26 +54,23 @@ function updateLabels(symbol, updateGeometry=false) {
             wiredPanels.updatePanelGeometry(panel);
 }
 
-function setSocketVisibility(socket, symbol) {
-    if(symbol == undefined) {
-        const labels = labelIndex.get(socket.symbol);
-        labels.delete(socket);
-        if(labels.size == 0)
-            labelIndex.remove(labels);
-        socket.label.textContent = '';
-        delete socket.symbol;
-    } else {
-        socket.symbol = symbol;
+function setSocketVisibility(socket, visible) {
+    if(visible) {
         if(!labelIndex.has(socket.symbol)) {
             const labels = new Set();
             labelIndex.set(socket.symbol, labels);
             labels.add(socket);
-            updateLabels(symbol);
+            updateLabels(socket.symbol);
         } else {
             const labels = labelIndex.get(socket.symbol);
             labels.add(socket);
             socket.label.textContent = labels.values().next().value.label.textContent;
         }
+    } else {
+        const labels = labelIndex.get(socket.symbol);
+        labels.delete(socket);
+        if(labels.size === 0)
+            labelIndex.delete(socket.symbol);
     }
 }
 
@@ -53,8 +83,8 @@ function linkedTriple(nodesToAdd, triple, panel) {
     for(let i = 1; i < 3; ++i) {
         const socket = wiredPanels.createSocket();
         socket.panel = panel;
-        socket.orientation = (i == 1) ? 'left' : 'right';
-        setSocketVisibility(socket, triple[i]);
+        socket.orientation = (i === 1) ? 'left' : 'right';
+        socket.symbol = triple[i];
         nodesToAdd.add(socket);
         if(panelIndex.has(socket.symbol)) {
             const wire = wiredPanels.createWire();
@@ -72,7 +102,7 @@ function unlinkedTriple(nodesToRemove, triple, panel) {
         panel = panelIndex.get(triple[0]);
     }
     for(let i = 0; i < panel.leftSockets.length; ++i)
-        if(panel.leftSockets[i].symbol == triple[1] && panel.rightSockets[i].symbol == triple[2]) {
+        if(panel.leftSockets[i].symbol === triple[1] && panel.rightSockets[i].symbol === triple[2]) {
             nodesToRemove.add(panel.leftSockets[i]);
             nodesToRemove.add(panel.rightSockets[i]);
             return;
@@ -84,6 +114,8 @@ function setPanelVisibility(panel, visible) {
         panelIndex.set(panel.symbol, panel);
     else
         panelIndex.delete(panel.symbol);
+    for(const socket of panel.sockets)
+        setSocketVisibility(socket, visible);
 }
 
 function addPanel(nodesToAdd, symbol) {
@@ -98,7 +130,7 @@ function addPanel(nodesToAdd, symbol) {
     const topSocket = wiredPanels.createSocket();
     topSocket.panel = panel;
     topSocket.orientation = 'top';
-    setSocketVisibility(topSocket, panel.symbol);
+    topSocket.symbol = panel.symbol;
     nodesToAdd.add(topSocket);
 
     function connectWires(triple, side) {
@@ -106,7 +138,7 @@ function addPanel(nodesToAdd, symbol) {
             return;
         const sockets = panelIndex.get(triple[0])[side];
         for(const socket of sockets)
-            if(socket.symbol == symbol) {
+            if(socket.symbol === symbol) {
                 const wire = wiredPanels.createWire();
                 wire.srcSocket = topSocket;
                 wire.dstSocket = socket;
@@ -126,7 +158,7 @@ function addPanel(nodesToAdd, symbol) {
 function getOppositeSocket(socket, triple) {
     let oppositeSocket;
     triple.push(socket.panel.symbol);
-    if(socket.orientation == 'left') {
+    if(socket.orientation === 'left') {
         const index = socket.panel.leftSockets.indexOf(socket);
         oppositeSocket = socket.panel.rightSockets[index];
         triple.push(socket.symbol);
@@ -140,50 +172,131 @@ function getOppositeSocket(socket, triple) {
     return oppositeSocket;
 }
 
+const modal = document.getElementById('modal'),
+      menu = document.getElementById('menu'),
+      menuItems = menu.getElementsByTagName('li'),
+      openFiles = document.createElement('input');
+openFiles.setAttribute('id', 'openFiles');
+openFiles.setAttribute('type', 'file');
+menu.appendChild(openFiles);
+menu.removeAttribute('style');
+menu.classList.add('fadeIn');
+makeListCollapsable(menu.getElementsByTagName('ul')[0]);
+
+document.getElementById('modalPositive').addEventListener('click', function(event) {
+    // TODO
+    modal.classList.remove('fadeIn');
+    modal.classList.add('fadeOut');
+});
+document.getElementById('modalNegative').addEventListener('click', function(event) {
+    // TODO
+    modal.classList.remove('fadeIn');
+    modal.classList.add('fadeOut');
+});
+
+menuItems[0].addEventListener('click', function() {
+    wiredPanels.undo();
+});
+menuItems[1].addEventListener('click', function() {
+    wiredPanels.redo();
+});
+menuItems[2].addEventListener('click', function() {
+    // TODO paste
+});
+menuItems[3].addEventListener('click', function() {
+    // TODO copy
+});
+menuItems[4].addEventListener('click', function() {
+    // TODO cut
+});
+menuItems[5].addEventListener('click', function() {
+    // TODO find
+});
+menuItems[6].addEventListener('click', function() {
+    const nodesToAdd = new Set(),
+          panel = addPanel(nodesToAdd, backend.createSymbol(symbolSpace));
+    wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
+        if(forward)
+            backend.createSymbol(symbolSpace, panel.symbol);
+        else
+            backend.unlinkSymbol(symbolSpace, panel.symbol);
+        setPanelVisibility(panel, forward);
+    });
+});
+menuItems[7].addEventListener('click', function() {
+    wiredPanels.deleteSelected();
+});
+menuItems[8].addEventListener('click', function() {
+    const string = backend.encodeJsonFromSymbolSpace(symbolSpace);
+    NativeBackend.downloadAsFile(string, 'Symatem.json');
+});
+menuItems[8].setAttribute('draggable', 'true');
+menuItems[8].addEventListener('dragstart', function(event) {
+    const string = backend.encodeJsonFromSymbolSpace(symbolSpace);
+    event.dataTransfer.setData('text/plain', string);
+    event.dataTransfer.setData('application/json', string);
+    event.dataTransfer.effectAllowed = 'all';
+});
+openFiles.addEventListener('change', function(event) {
+    wiredPanels.eventListeners.paste(event.target);
+});
+menuItems[10].addEventListener('click', function() {
+    let element = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+    if(element) {
+        if(document.exitFullscreen)
+            document.exitFullscreen();
+        else if(document.mozCancelFullScreen)
+            document.mozCancelFullScreen();
+        else if(document.webkitExitFullscreen)
+            document.webkitExitFullscreen();
+        return;
+    }
+    element = document.documentElement;
+    if(element.requestFullscreen)
+        element.requestFullscreen();
+    else if(element.mozRequestFullScreen)
+        element.mozRequestFullScreen();
+    else if(element.webkitRequestFullscreen)
+        element.webkitRequestFullscreen();
+});
+{
+    const label = document.createElement('label'),
+          li = menuItems[9];
+    label.setAttribute('for', openFiles.getAttribute('id'));
+    li.parentNode.insertBefore(label, li);
+    label.appendChild(li);
+}
+
 const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
-    'activate': function() {
-        const nodesToAdd = new Set(), nodesToRemove = new Set(), updateData = new Set(), panels = new Set();
-        for(const node of wiredPanels.selection)
-            if(node.type === 'panel') {
-                const update = {
-                    'symbol': node.symbol,
-                    'prev': backend.getData(symbolSpace, node.symbol)
-                };
-                const from = labelForData(update.prev, node.symbol),
-                      to = prompt('Data', from);
-                if(to != undefined && to != from) {
-                    update.next = NativeBackend.decodeText(to);
-                    updateData.add(update);
-                    let prevEncoding = [update.symbol, backend.symbolByName.Encoding, undefined],
-                        nextEncoding = [update.symbol, backend.symbolByName.Encoding, undefined];
-                    prevEncoding[2] = backend.getSolitary(symbolSpace, prevEncoding[0], prevEncoding[1]);
-                    backend.setData(symbolSpace, update.symbol, update.next);
-                    nextEncoding[2] = backend.getSolitary(symbolSpace, nextEncoding[0], nextEncoding[1]);
-                    if(prevEncoding[2] != nextEncoding[2]) {
-                        if(prevEncoding[2] != undefined)
-                            unlinkedTriple(nodesToRemove, prevEncoding);
-                        if(nextEncoding[2] != undefined)
-                            linkedTriple(nodesToAdd, nextEncoding);
-                    }
-                }
-            } else if(node.type === 'socket') {
-                if(node.orientation != 'top' && node.wiresPerPanel.size == 0 && node.symbol != undefined)
-                    panels.add(addPanel(nodesToAdd, node.symbol));
-            }
-        if(nodesToAdd.size > 0 || nodesToRemove.size > 0 || updateData.size > 0)
-            wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
-                for(const update of updateData) {
-                    backend.setData(symbolSpace, update.symbol, forward ? update.next : update.prev);
-                    updateLabels(update.symbol, true);
-                }
-                for(const panel of panels)
-                    setPanelVisibility(panel, forward);
+    activate(node) {
+        const nodesToAdd = new Set(),
+              panels = new Set();
+        for(const node of wiredPanels.selection) {
+            if(node.type === 'panel')
+                panels.add(node);
+            else if(node.type === 'socket' && node.orientation !== 'top' && node.wiresPerPanel.size === 0 && node.symbol !== undefined)
+                addPanel(nodesToAdd, node.symbol);
+        }
+        if(panels.size === 1) {
+            const firstTime = modal.getAttribute('style') != undefined;
+            modal.removeAttribute('style');
+            modal.classList.remove('fadeOut');
+            modal.classList.add('fadeIn');
+            if(firstTime)
+                makeListCollapsable(modal.getElementsByTagName('ul')[0]);
+            // TODO
+        }
+        if(nodesToAdd.size > 0)
+            wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
+                for(const node of nodesToAdd)
+                    if(node.type === 'panel')
+                        setPanelVisibility(node, forward);
             });
     },
-    'remove': function() {
+    remove() {
         const nodesToDeselect = new Set();
         for(const node of wiredPanels.selection)
-            if(node.type == 'wire')
+            if(node.type === 'wire')
                 nodesToDeselect.add(node);
 
         const nodesToSelect = new Set(), triples = new Set(), panels = new Set();
@@ -200,6 +313,7 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
                             break;
                         case 'left':
                         case 'right': {
+                            nodesToSelect.add(node);
                             const triple = [], oppositeSocket = getOppositeSocket(node, triple);
                             if(!wiredPanels.selection.has(oppositeSocket))
                                 nodesToSelect.add(oppositeSocket);
@@ -216,6 +330,7 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
                         'triples': [...backend.queryTriples(symbolSpace, NativeBackend.queryMask.MVV, [node.symbol, 0, 0])]
                     };
                     panels.add(update);
+                    nodesToSelect.add(node);
                     break;
             }
 
@@ -224,6 +339,15 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             wiredPanels.selection.add(panel);
 
         return function(forward) {
+            for(const node of nodesToSelect)
+                switch(node.type) {
+                    case 'panel':
+                        setPanelVisibility(node, !forward);
+                        break;
+                    case 'socket':
+                        setSocketVisibility(node, !forward);
+                        break;
+                }
             for(const triple of triples)
                 backend.setTriple(symbolSpace, !forward, triple);
             for(const update of panels) {
@@ -235,14 +359,13 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
                     for(const triple of update.triples)
                         backend.setTriple(symbolSpace, true, triple);
                 }
-                setPanelVisibility(update.panel, !forward);
             }
         };
     },
-    'wireDrag': function(socket) {
-        return socket.orientation == 'top';
+    wireDrag(socket) {
+        return socket.orientation === 'top';
     },
-    'wireConnect': function(node, wire, nodesToAdd) {
+    wireConnect(node, wire, nodesToAdd) {
         if(node.type === 'panel') {
             const rect = wiredPanels.boundingRectOfPanel(node),
                   diffX = wire.dstSocket.primaryElement.x-(rect[0]+rect[1])/2,
@@ -251,14 +374,19 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             wire.dstSocket = wiredPanels.createSocket();
             wire.dstSocket.panel = node;
             wire.dstSocket.orientation = (diffX < 0) ? 'left' : 'right';
-            setSocketVisibility(wire.dstSocket, wire.srcSocket.symbol);
+            wire.dstSocket.symbol = wire.srcSocket.symbol;
             nodesToAdd.add(wire.dstSocket);
+            const socket = wire.dstSocket;
 
             const oppositeSocket = wiredPanels.createSocket();
             oppositeSocket.panel = node;
             oppositeSocket.orientation = (diffX >= 0) ? 'left' : 'right';
             nodesToAdd.add(oppositeSocket);
-        } else {
+
+            return function(forward) {
+                setSocketVisibility(socket, forward);
+            };
+        } else if(node.type === 'socket') {
             if(node.symbol != undefined)
                 return;
             const symbol = wire.srcSocket.symbol;
@@ -267,24 +395,28 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             const triple = [], oppositeSocket = getOppositeSocket(node, triple);
             return function(forward) {
                 backend.setTriple(symbolSpace, forward, triple);
-                setSocketVisibility(node, (forward) ? symbol : undefined);
+                if(forward)
+                    node.symbol = symbol;
+                setSocketVisibility(node, forward);
+                if(!forward) {
+                    delete node.symbol;
+                    node.label.textContent = '';
+                }
                 wiredPanels.updatePanelGeometry(node.panel);
             };
         }
+    },
+    paste(files) {
+        files = files.files;
+        if(!files || files.length !== 1)
+            return false;
+        for(const file of files) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                backend.decodeJsonIntoSymbolSpace(symbolSpace, event.target.result);
+            };
+            reader.readAsText(file);
+        }
+        return true;
     }
 });
-
-wiredPanels.svg.ondblclick = function(event) {
-    const mousePos = wiredPanels.mousePositionOfEvent(event),
-          nodesToAdd = new Set(),
-          panel = addPanel(nodesToAdd, backend.createSymbol(symbolSpace));
-    panel.x = mousePos[0];
-    panel.y = mousePos[1];
-    wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
-        if(forward)
-            backend.createSymbol(symbolSpace, panel.symbol);
-        else
-            backend.unlinkSymbol(symbolSpace, panel.symbol);
-        setPanelVisibility(panel, forward);
-    });
-};

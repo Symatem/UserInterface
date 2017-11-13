@@ -1,6 +1,26 @@
 body {
     margin: 0px;
+    background-color: #001122;
     font-family: Verdana;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+    cursor: default;
+}
+
+[contentEditable=true] {
+    -moz-user-select: text;
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    -o-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+
+:focus {
+    outline: none;
 }
 
 .layer {
@@ -20,11 +40,40 @@ body {
     border-radius: 10px;
     border: 1px solid white;
     overflow: scroll;
+    max-height: calc(100% - 42px);
+}
+
+#modal .box {
     max-height: calc(100% - 85px);
 }
 
 #modal {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+#modalButtons {
+    margin-top: 7;
+    margin-bottom: -7;
+}
+
+#modalButtons div {
+    width: 40px;
+    height: 40px;
+    display: inline-block;
+    transition: opacity 0.25s linear;
+    opacity: 0.75;
+}
+
+#modalButtons div:hover {
+    opacity: 1;
+}
+
+#modalPositive {
+    background: #44DDFF;
+}
+
+#modalNegative {
+    background: #FF7700;
 }
 
 #menu {
@@ -33,6 +82,49 @@ body {
     left: 10px;
 }
 
-:focus {
-    outline: none;
+input {
+    display: none;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    transition: height 0.25s linear;
+}
+
+li {
+    margin-left: 5px;
+}
+
+li div {
+    width: 20px;
+    height: 20px;
+    display: inline-block;
+    background: white;
+    margin-right: 5px;
+}
+
+li div, li span, .triangle, .triangle + span {
+    vertical-align: middle;
+}
+
+#modalButtons div, #menu li, .triangle, .triangle + span {
+    cursor: pointer;
+}
+
+.triangle {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    background: white;
+    margin: 0;
+    margin-right: 5px;
+    transition: transform 0.25s linear;
+    -webkit-mask: url(icons/triangle.svg);
+}
+
+.open > .triangle {
+    transform: rotate(90deg);
 }
