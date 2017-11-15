@@ -1,22 +1,22 @@
 import WiredPanels from '../WiredPanels/WiredPanels.js';
 import NativeBackend from '../SymatemJS/NativeBackend.js';
+import FuzzySearchIndex from './FuzzySearchIndex.js';
 const backend = new NativeBackend(),
       symbolSpace = backend.createSymbolSpace(),
-      panelIndex = new Map(), labelIndex = new Map();
+      symbolIndex = new Map(),
+      labelIndex = new FuzzySearchIndex();
 
 function makeListCollapsable(ul) {
     for(const child of ul.getElementsByTagName('ul'))
         if(child.parentNode.parentNode === ul)
             makeListCollapsable(child);
-
     const parent = ul.parentNode, triangle = parent.getElementsByClassName('triangle')[0];
     if(!triangle || triangle.parentNode !== parent)
         return;
-
+    ul.style.height = 'auto';
     const height = ul.offsetHeight;
     ul.setAttribute('height', height);
     ul.style.height = 0;
-
     function click(event) {
         let height = parseInt(ul.getAttribute('height'));
         const collapse = parent.classList.contains('open');
@@ -34,19 +34,33 @@ function makeListCollapsable(ul) {
         }
         event.stopPropagation();
     };
-    triangle.addEventListener('click', click);
-    triangle.nextElementSibling.addEventListener('click', click);
+    triangle.onclick = click;
+    if(triangle.nextElementSibling)
+        triangle.nextElementSibling.onclick = click;
 }
 
-function labelForData(data, symbol) {
-    return data ? NativeBackend.encodeText(data) : `#${symbol}`;
+function labelOfSymbol(symbol, forceUpdate) {
+    const data = backend.getData(symbolSpace, symbol);
+    let entry;
+    if(!symbolIndex.has(symbol)) {
+        entry = {'symbol': symbol};
+        symbolIndex.set(symbol, entry);
+    } else
+        entry = symbolIndex.get(symbol);
+    if(entry.label && forceUpdate)
+        labelIndex.delete(entry);
+    if(!entry.label || forceUpdate) {
+        entry.label = data ? NativeBackend.encodeText(data) : `#${symbol}`;
+        labelIndex.add(entry);
+    }
+    return entry;
 }
 
 function updateLabels(symbol, updateGeometry=false) {
-    const panels = new Set(),
-          string = labelForData(backend.getData(symbolSpace, symbol), symbol);
-    for(const socket of labelIndex.get(symbol)) {
-        socket.label.textContent = string;
+    const entry = labelOfSymbol(symbol, true),
+          panels = new Set();
+    for(const socket of entry.labels) {
+        socket.label.textContent = entry.label;
         panels.add(socket.panel);
     }
     if(updateGeometry)
@@ -56,39 +70,65 @@ function updateLabels(symbol, updateGeometry=false) {
 
 function setSocketVisibility(socket, visible) {
     if(visible) {
-        if(!labelIndex.has(socket.symbol)) {
-            const labels = new Set();
-            labelIndex.set(socket.symbol, labels);
-            labels.add(socket);
-            updateLabels(socket.symbol);
+        let entry;
+        if(!symbolIndex.has(socket.symbol)) {
+            entry = {'symbol': symbol, 'labels': new Set()};
+            symbolIndex.set(socket.symbol, entry);
         } else {
-            const labels = labelIndex.get(socket.symbol);
-            labels.add(socket);
-            socket.label.textContent = labels.values().next().value.label.textContent;
+            entry = symbolIndex.get(socket.symbol);
+            if(!entry.labels)
+                entry.labels = new Set();
         }
+        entry.labels.add(socket);
     } else {
-        const labels = labelIndex.get(socket.symbol);
-        labels.delete(socket);
-        if(labels.size === 0)
-            labelIndex.delete(socket.symbol);
+        const entry = symbolIndex.get(socket.symbol);
+        entry.labels.delete(socket);
+        if(entry.labels.size === 0)
+            delete entry.labels;
     }
 }
 
+function setPanelVisibility(panel, visible) {
+    if(visible) {
+        if(!symbolIndex.has(panel.symbol))
+            symbolIndex.set(panel.symbol, {'symbol': symbol, 'panel': panel});
+        else
+            symbolIndex.get(panel.symbol).panel = panel;
+    } else if(symbolIndex.has(panel.symbol))
+        delete symbolIndex.get(panel.symbol).panel;
+    for(const socket of panel.sockets)
+        setSocketVisibility(socket, visible);
+}
+
+function setNodesVisibility(nodes, visibility) {
+    for(const node of nodes)
+        switch(node.type) {
+            case 'socket':
+                setSocketVisibility(node, visibility);
+                break;
+            case 'panel':
+                setPanelVisibility(node, visibility);
+                break;
+        }
+}
+
 function linkedTriple(nodesToAdd, triple, panel) {
-    if(panel == undefined) {
-        if(!panelIndex.has(triple[0]))
+    if(!panel) {
+        panel = getPanel(triple[0]);
+        if(!panel)
             return;
-        panel = panelIndex.get(triple[0]);
     }
     for(let i = 1; i < 3; ++i) {
         const socket = wiredPanels.createSocket();
         socket.panel = panel;
         socket.orientation = (i === 1) ? 'left' : 'right';
         socket.symbol = triple[i];
+        socket.label.textContent = labelOfSymbol(socket.symbol).label;
         nodesToAdd.add(socket);
-        if(panelIndex.has(socket.symbol)) {
+        const srcPanel = getPanel(socket.symbol);
+        if(srcPanel) {
             const wire = wiredPanels.createWire();
-            wire.srcSocket = panelIndex.get(socket.symbol).topSockets[0];
+            wire.srcSocket = srcPanel.topSockets[0];
             wire.dstSocket = socket;
             nodesToAdd.add(wire);
         }
@@ -96,10 +136,10 @@ function linkedTriple(nodesToAdd, triple, panel) {
 }
 
 function unlinkedTriple(nodesToRemove, triple, panel) {
-    if(panel == undefined) {
-        if(!panelIndex.has(triple[0]))
+    if(!panel) {
+        panel = getPanel(triple[0]);
+        if(!panel)
             return;
-        panel = panelIndex.get(triple[0]);
     }
     for(let i = 0; i < panel.leftSockets.length; ++i)
         if(panel.leftSockets[i].symbol === triple[1] && panel.rightSockets[i].symbol === triple[2]) {
@@ -109,20 +149,18 @@ function unlinkedTriple(nodesToRemove, triple, panel) {
         }
 }
 
-function setPanelVisibility(panel, visible) {
-    if(visible)
-        panelIndex.set(panel.symbol, panel);
-    else
-        panelIndex.delete(panel.symbol);
-    for(const socket of panel.sockets)
-        setSocketVisibility(socket, visible);
+function getPanel(symbol) {
+    if(!symbolIndex.has(symbol))
+        return;
+    return symbolIndex.get(symbol).panel;
 }
 
 function addPanel(nodesToAdd, symbol) {
-    if(panelIndex.has(symbol))
-        return panelIndex.get(symbol);
+    let panel = getPanel(symbol);
+    if(panel)
+        return panel;
 
-    const panel = wiredPanels.createPanel();
+    panel = wiredPanels.createPanel();
     panel.symbol = symbol;
     nodesToAdd.add(panel);
 
@@ -131,13 +169,14 @@ function addPanel(nodesToAdd, symbol) {
     topSocket.panel = panel;
     topSocket.orientation = 'top';
     topSocket.symbol = panel.symbol;
+    topSocket.label.textContent = labelOfSymbol(topSocket.symbol).label;
     nodesToAdd.add(topSocket);
 
     function connectWires(triple, side) {
-        if(!panelIndex.has(triple[0]))
+        const panel = getPanel(triple[0]);
+        if(!panel)
             return;
-        const sockets = panelIndex.get(triple[0])[side];
-        for(const socket of sockets)
+        for(const socket of panel[side])
             if(socket.symbol === symbol) {
                 const wire = wiredPanels.createWire();
                 wire.srcSocket = topSocket;
@@ -172,7 +211,12 @@ function getOppositeSocket(socket, triple) {
     return oppositeSocket;
 }
 
+
+
 const modal = document.getElementById('modal'),
+      modalContent = document.getElementById('modalContent'),
+      modalPositive = document.getElementById('modalPositive'),
+      modalNegative = document.getElementById('modalNegative'),
       menu = document.getElementById('menu'),
       menuItems = menu.getElementsByTagName('li'),
       openFiles = document.createElement('input');
@@ -183,17 +227,17 @@ menu.removeAttribute('style');
 menu.classList.add('fadeIn');
 makeListCollapsable(menu.getElementsByTagName('ul')[0]);
 
-document.getElementById('modalPositive').addEventListener('click', function(event) {
-    // TODO
+function openModal(accept) {
+    modalPositive.onclick = accept;
+    modal.removeAttribute('style');
+    modal.classList.remove('fadeOut');
+    modal.classList.add('fadeIn');
+}
+function closeModal() {
     modal.classList.remove('fadeIn');
     modal.classList.add('fadeOut');
-});
-document.getElementById('modalNegative').addEventListener('click', function(event) {
-    // TODO
-    modal.classList.remove('fadeIn');
-    modal.classList.add('fadeOut');
-});
-
+}
+modalNegative.addEventListener('click', closeModal);
 menuItems[0].addEventListener('click', function() {
     wiredPanels.undo();
 });
@@ -210,9 +254,90 @@ menuItems[4].addEventListener('click', function() {
     // TODO cut
 });
 menuItems[5].addEventListener('click', function() {
-    // TODO find
+    let selection = -1;
+    function accept() {
+        closeModal();
+        if(selection < 0)
+            return;
+        const nodesToAdd = new Set(),
+              panel = addPanel(nodesToAdd, options.childNodes[selection].entry.symbol);
+        wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
+            setPanelVisibility(panel, forward);
+        });
+    }
+
+    modalContent.innerHTML = '';
+    const search = document.createElement('div'),
+          options = document.createElement('div');
+    modalContent.appendChild(search);
+    modalContent.appendChild(options);
+    options.setAttribute('id', 'search');
+    search.setAttribute('contentEditable', 'true');
+    search.setAttribute('style', 'min-width: 100px; min-height: 20px;');
+    search.onkeydown = function(event) {
+        event.stopPropagation();
+        switch(event.keyCode) {
+            case 13: // Enter
+                search.blur();
+                accept();
+                break;
+            case 27: // Escape
+                search.blur();
+                closeModal();
+                break;
+            case 38: // Up
+                if(selection < 0)
+                    break;
+                options.childNodes[selection].classList.remove('selected');
+                if(--selection < 0)
+                    selection = options.childNodes.length-1;
+                options.childNodes[selection].classList.add('selected');
+                break;
+            case 40: // Down
+                if(selection < 0)
+                    break;
+                options.childNodes[selection].classList.remove('selected');
+                if(++selection >= options.childNodes.length)
+                    selection = 0;
+                options.childNodes[selection].classList.add('selected');
+                break;
+            default:
+                return;
+        }
+        event.preventDefault();
+    };
+    search.onkeyup = function(event) {
+        event.stopPropagation();
+        switch(event.keyCode) {
+            case 13: // Enter
+            case 27: // Escape
+            case 38: // Up
+            case 40: // Down
+                return;
+        }
+        if(selection >= 0) {
+            options.childNodes[selection].classList.remove('selected');
+            selection = -1;
+        }
+        options.innerHTML = '';
+        const results = labelIndex.get(search.textContent);
+        for(const result of results) {
+            const element = document.createElement('div');
+            options.appendChild(element);
+            element.entry = result.entry;
+            element.textContent = result.entry.label;
+            if(result == results[0]) {
+                selection = 0;
+                element.classList.add('selected');
+            }
+        }
+    };
+    openModal(accept);
 });
 menuItems[6].addEventListener('click', function() {
+    wiredPanels.eventListeners.activate();
+});
+menuItems[7].addEventListener('click', function() {
     const nodesToAdd = new Set(),
           panel = addPanel(nodesToAdd, backend.createSymbol(symbolSpace));
     wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
@@ -223,15 +348,15 @@ menuItems[6].addEventListener('click', function() {
         setPanelVisibility(panel, forward);
     });
 });
-menuItems[7].addEventListener('click', function() {
+menuItems[8].addEventListener('click', function() {
     wiredPanels.deleteSelected();
 });
-menuItems[8].addEventListener('click', function() {
+menuItems[9].addEventListener('click', function() {
     const string = backend.encodeJsonFromSymbolSpace(symbolSpace);
     NativeBackend.downloadAsFile(string, 'Symatem.json');
 });
-menuItems[8].setAttribute('draggable', 'true');
-menuItems[8].addEventListener('dragstart', function(event) {
+menuItems[9].setAttribute('draggable', 'true');
+menuItems[9].addEventListener('dragstart', function(event) {
     const string = backend.encodeJsonFromSymbolSpace(symbolSpace);
     event.dataTransfer.setData('text/plain', string);
     event.dataTransfer.setData('application/json', string);
@@ -240,7 +365,14 @@ menuItems[8].addEventListener('dragstart', function(event) {
 openFiles.addEventListener('change', function(event) {
     wiredPanels.eventListeners.paste(event.target);
 });
-menuItems[10].addEventListener('click', function() {
+{
+    const label = document.createElement('label'),
+          li = menuItems[10];
+    label.setAttribute('for', openFiles.getAttribute('id'));
+    li.parentNode.insertBefore(label, li);
+    label.appendChild(li);
+}
+menuItems[11].addEventListener('click', function() {
     let element = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
     if(element) {
         if(document.exitFullscreen)
@@ -259,15 +391,8 @@ menuItems[10].addEventListener('click', function() {
     else if(element.webkitRequestFullscreen)
         element.webkitRequestFullscreen();
 });
-{
-    const label = document.createElement('label'),
-          li = menuItems[9];
-    label.setAttribute('for', openFiles.getAttribute('id'));
-    li.parentNode.insertBefore(label, li);
-    label.appendChild(li);
-}
 
-const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
+const wiredPanels = new WiredPanels({}, {
     activate(node) {
         const nodesToAdd = new Set(),
               panels = new Set();
@@ -277,14 +402,44 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             else if(node.type === 'socket' && node.orientation !== 'top' && node.wiresPerPanel.size === 0 && node.symbol !== undefined)
                 addPanel(nodesToAdd, node.symbol);
         }
-        if(panels.size === 1) {
-            const firstTime = modal.getAttribute('style') != undefined;
-            modal.removeAttribute('style');
-            modal.classList.remove('fadeOut');
-            modal.classList.add('fadeIn');
-            if(firstTime)
-                makeListCollapsable(modal.getElementsByTagName('ul')[0]);
+        function accept() {
             // TODO
+            const update = modalContent.update, nodesToAdd = new Set(), nodesToRemove = new Set();
+            update.to = modalContent.getElementsByTagName('div')[0].innerText;
+            if(update.to != update.from) {
+                update.next = NativeBackend.decodeText(update.to);
+                let prevEncoding = [update.symbol, backend.symbolByName.Encoding, undefined],
+                    nextEncoding = [update.symbol, backend.symbolByName.Encoding, undefined];
+                prevEncoding[2] = backend.getSolitary(symbolSpace, prevEncoding[0], prevEncoding[1]);
+                backend.setData(symbolSpace, update.symbol, update.next);
+                nextEncoding[2] = backend.getSolitary(symbolSpace, nextEncoding[0], nextEncoding[1]);
+                if(prevEncoding[2] != nextEncoding[2]) {
+                    if(prevEncoding[2] != undefined)
+                        unlinkedTriple(nodesToRemove, prevEncoding);
+                    if(nextEncoding[2] != undefined)
+                        linkedTriple(nodesToAdd, nextEncoding);
+                }
+                wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
+                    backend.setData(symbolSpace, update.symbol, forward ? update.next : update.prev);
+                    updateLabels(update.symbol, true);
+                    setNodesVisibility(nodesToAdd, forward);
+                    setNodesVisibility(nodesToRemove, !forward);
+                });
+            }
+            closeModal();
+        }
+        if(panels.size === 1) {
+            const update = {'panel': panels.values().next().value};
+            update.symbol = update.panel.symbol;
+            update.prev = backend.getData(symbolSpace, update.symbol);
+            update.from = labelOfSymbol(update.symbol).label;
+            modalContent.update = update;
+
+            // TODO
+            modalContent.innerHTML = `<div contentEditable="true">${update.from.replace('\n', '<br/>')}</div>`;
+            // makeListCollapsable(ul);
+
+            openModal(accept);
         }
         if(nodesToAdd.size > 0)
             wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
@@ -339,15 +494,7 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             wiredPanels.selection.add(panel);
 
         return function(forward) {
-            for(const node of nodesToSelect)
-                switch(node.type) {
-                    case 'panel':
-                        setPanelVisibility(node, !forward);
-                        break;
-                    case 'socket':
-                        setSocketVisibility(node, !forward);
-                        break;
-                }
+            setNodesVisibility(nodesToSelect, !forward);
             for(const triple of triples)
                 backend.setTriple(symbolSpace, !forward, triple);
             for(const update of panels) {
@@ -375,6 +522,7 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             wire.dstSocket.panel = node;
             wire.dstSocket.orientation = (diffX < 0) ? 'left' : 'right';
             wire.dstSocket.symbol = wire.srcSocket.symbol;
+            wire.dstSocket.label.textContent = labelOfSymbol(wire.dstSocket.symbol).label;
             nodesToAdd.add(wire.dstSocket);
             const socket = wire.dstSocket;
 
@@ -395,8 +543,10 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
             const triple = [], oppositeSocket = getOppositeSocket(node, triple);
             return function(forward) {
                 backend.setTriple(symbolSpace, forward, triple);
-                if(forward)
+                if(forward) {
                     node.symbol = symbol;
+                    node.label.textContent = labelOfSymbol(node.symbol).label;
+                }
                 setSocketVisibility(node, forward);
                 if(!forward) {
                     delete node.symbol;
@@ -420,3 +570,4 @@ const wiredPanels = new WiredPanels(document.getElementById('ground'), {}, {
         return true;
     }
 });
+document.body.insertBefore(wiredPanels.svg, modal);

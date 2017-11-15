@@ -1,6 +1,6 @@
 body {
     margin: 0px;
-    background-color: #001122;
+    background-color: var(--background-color);
     font-family: Verdana;
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -27,6 +27,8 @@ body {
     width: 100%;
     height: 100%;
     display: flex;
+    top: 0;
+    left: 0;
     position: absolute;
     align-items: center;
     justify-content: center;
@@ -34,11 +36,11 @@ body {
 }
 
 .box {
-    color: white;
-    background-color: #001122;
+    color: var(--text-color);
+    background-color: var(--background-color);
     padding: 10px;
     border-radius: 10px;
-    border: 1px solid white;
+    border: 1px solid var(--text-color);
     overflow: scroll;
     max-height: calc(100% - 42px);
 }
@@ -69,11 +71,19 @@ body {
 }
 
 #modalPositive {
-    background: #44DDFF;
+    background: var(--panel-stroke);
 }
 
 #modalNegative {
-    background: #FF7700;
+    background: var(--socket-stroke);
+}
+
+#search div {
+    transition: color 0.15s linear;
+}
+
+#search .selected {
+    color: var(--wire-stroke);
 }
 
 #menu {
@@ -102,7 +112,7 @@ li div {
     width: 20px;
     height: 20px;
     display: inline-block;
-    background: white;
+    background: var(--text-color);
     margin-right: 5px;
 }
 
@@ -118,7 +128,7 @@ li div, li span, .triangle, .triangle + span {
     width: 16px;
     height: 16px;
     display: inline-block;
-    background: white;
+    background: var(--text-color);
     margin: 0;
     margin-right: 5px;
     transition: transform 0.25s linear;

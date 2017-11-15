@@ -8,12 +8,11 @@
         <link rel="stylesheet" href="main.css">
     </head>
     <body>
-        <div class="layer" id="ground"></div>
         <div class="layer" id="logo">
-            <object type="image/svg+xml" width="40%" data="logoAnimation.svg"></object>
+            <object type="image/svg+xml" height="80%" data="logoAnimation.svg"></object>
             <script>
-                const object = document.getElementsByTagName('object')[0],
-                      color = document.styleSheets[1].cssRules[2].style['stroke'];
+                const object = document.getElementsByTagName('object')[0];
+                      color = document.styleSheets[1].cssRules[0].cssText.match(/--panel-stroke:\s*([^;]*);/)[1];
                 document.body.onload = function(event) {
                     object.contentDocument.getElementsByTagName('g')[0].setAttribute('stroke', color);
                     object.contentDocument.getElementsByTagName('svg')[0].finished = function() {
@@ -27,9 +26,7 @@
             </script>
         </div>
         <div class="layer" id="modal" style="display: none;">
-            <div class="box">
-                <div class="triangle"></div><span>Content</span>
-                <ul></ul>
+            <div class="box" id="modalContent">
             </div>
             <div id="modalButtons">
                 <div style="-webkit-mask: url(icons/checkmark.svg);" id="modalPositive"></div>
@@ -44,12 +41,13 @@
                 <li><div style="-webkit-mask: url(icons/paste.svg);"></div><span>Paste</span></li>
                 <li><div style="-webkit-mask: url(icons/copy.svg);"></div><span>Copy</span></li>
                 <li><div style="-webkit-mask: url(icons/cut.svg);"></div><span>Cut</span></li>
-                <li><div style="-webkit-mask: url(icons/find.svg);"></div><span>Find</span></li>
+                <li><div style="-webkit-mask: url(icons/search.svg);"></div><span>Search</span></li>
+                <li><div style="-webkit-mask: url(icons/use.svg);"></div><span>Use</span></li>
                 <li><div style="-webkit-mask: url(icons/plusmark.svg);"></div><span>Insert</span></li>
                 <li><div style="-webkit-mask: url(icons/crossmark.svg);"></div><span>Erase</span></li>
                 <li><div style="-webkit-mask: url(icons/save.svg);"></div><span>Save</span></li>
                 <li><div style="-webkit-mask: url(icons/open.svg);"></div><span>Open</span></li>
-                <li><div style="-webkit-mask: url(icons/fullscreen.svg);"></div><span>Screen</span></li>
+                <li><div style="-webkit-mask: url(icons/screen.svg);"></div><span>Screen</span></li>
             </ul>
         </div>
     </body>
