@@ -320,14 +320,20 @@ menuItems[5].addEventListener('click', function() {
             selection = -1;
         }
         options.innerHTML = '';
+        options.addEventListener('click', accept);
         const results = labelIndex.get(search.textContent);
-        for(const result of results) {
+        for(let i = 0; i < results.length; ++i) {
             const element = document.createElement('div');
             options.appendChild(element);
-            element.entry = result.entry;
-            element.textContent = result.entry.label;
-            if(result == results[0]) {
-                selection = 0;
+            element.entry = results[i].entry;
+            element.textContent = element.entry.label;
+            element.addEventListener('mouseover', function(event) {
+                options.childNodes[selection].classList.remove('selected');
+                selection = i;
+                options.childNodes[selection].classList.add('selected');
+            });
+            if(i == 0) {
+                selection = i;
                 element.classList.add('selected');
             }
         }

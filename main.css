@@ -78,11 +78,11 @@ body {
     background: var(--socket-stroke);
 }
 
-#search div {
+#search div, li {
     transition: color 0.15s linear;
 }
 
-#search .selected {
+#search .selected, li:hover {
     color: var(--wire-stroke);
 }
 
