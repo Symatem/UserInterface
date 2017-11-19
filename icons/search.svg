@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+    <circle fill="none" stroke="black" stroke-width="2" stroke-miterlimit="10" cx="12" cy="12" r="8"/>
+    <path d="M20.94,18.819l-2.121-2.121l-2.121,2.121l2.121,2.121c-0.389,0.389-0.389,1.025,0,1.414l5.657,5.657c0.389,0.389,1.025,0.389,1.414,0l2.121-2.121c0.389-0.389,0.389-1.025,0-1.414l-5.657-5.657C21.965,18.43,21.329,18.43,20.94,18.819z"/>
+</svg>
