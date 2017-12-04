@@ -11,9 +11,10 @@
         <div class="layer" id="logo">
             <object type="image/svg+xml" height="80%" data="logoAnimation.svg"></object>
             <script>
-                const object = document.getElementsByTagName('object')[0];
-                      color = document.styleSheets[1].cssRules[0].cssText.match(/--panel-stroke:\s*([^;]*);/)[1];
                 document.body.onload = function(event) {
+                    const styles = window.getComputedStyle(document.body),
+                          color = styles.getPropertyValue('--panel-stroke'),
+                          object = document.getElementsByTagName('object')[0];
                     object.contentDocument.getElementsByTagName('g')[0].setAttribute('stroke', color);
                     object.contentDocument.getElementsByTagName('svg')[0].finished = function() {
                         object.parentNode.parentNode.removeChild(object.parentNode);
