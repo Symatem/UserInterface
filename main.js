@@ -45,15 +45,17 @@ function labelOfSymbol(symbol, forceUpdate) {
         symbolIndex.set(symbol, entry);
     } else
         entry = symbolIndex.get(symbol);
-    if(entry.label && forceUpdate != undefined) {
+    if(entry.label && forceUpdate != undefined)
         labelIndex.delete(entry);
-        delete entry.label;
-    }
     if(!entry.label || forceUpdate) {
         const data = backend.getData(symbol);
         if(data) {
             entry.label = NativeBackend.encodeText(data);
             labelIndex.add(entry);
+        } else {
+            const namespaceIdentity = NativeBackend.namespaceOfSymbol(symbol),
+                  identity = NativeBackend.identityOfSymbol(symbol);
+            entry.label.textContent = namespaceIdentity+' : '+identity;
         }
     }
     return entry;
@@ -352,7 +354,7 @@ function openSearch(socket) {
         searchInput = search.textContent.replace('\xA0', ' ');
         const results = labelIndex.get(searchInput),
               split = searchInput.split(':');
-        if(split.length === 2 && split[0].length > 0 && split[1].length > 0)
+        if(split.length === 2 && !isNaN(parseInt(split[0])) && split[1].length > 0)
             results.unshift({'entry': {'label': 'Create'}});
         options.innerHTML = '';
         selection = (results.length > 0) ? 0 : undefined;
@@ -404,16 +406,21 @@ function toggleFullscreen() {
 const wiredPanels = new WiredPanels({}, {
     activate(node) {
         const nodesToAdd = new Set(),
-              panels = new Set();
+              nodesToRemove = new Set(),
+              updates = new Set();
         for(const node of wiredPanels.selection) {
-            if(node.type === 'panel')
-                panels.add(node);
-            else if(node.type === 'socket' && node.orientation !== 'top') {
-                if(node.symbol == undefined)
-                    openSearch(node);
-                else if(node.wiresPerPanel.size === 0)
-                    addPanel(nodesToAdd, node.symbol);
+            if(node.type === 'panel') {
+                nodesToRemove.add(node);
+                continue;
             }
+            if(wiredPanels.selection.has(node.panel))
+                continue;
+            if(node.orientation === 'top')
+                updates.add(node);
+            else if(node.symbol == undefined)
+                openSearch(node);
+            else if(node.wiresPerPanel.size === 0)
+                addPanel(nodesToAdd, node.symbol);
         }
         function accept() {
             // TODO
@@ -441,11 +448,11 @@ const wiredPanels = new WiredPanels({}, {
             }
             closeModal();
         }
-        if(panels.size === 1) {
-            const update = {'panel': panels.values().next().value};
+        if(updates.size === 1) {
+            const update = {'panel': updates.values().next().value};
             update.symbol = update.panel.symbol;
             update.prev = backend.getData(update.symbol);
-            update.from = labelOfSymbol(update.symbol).label;
+            update.from = NativeBackend.encodeText(update.prev);
             modalContent.update = update;
 
             // TODO
@@ -454,43 +461,48 @@ const wiredPanels = new WiredPanels({}, {
 
             openModal(accept);
         }
-        if(nodesToAdd.size > 0)
-            wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
+        if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
+            wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
                 for(const node of nodesToAdd)
                     if(node.type === 'panel')
                         setPanelVisibility(node, forward);
+                for(const node of nodesToRemove)
+                    if(node.type === 'panel')
+                        setPanelVisibility(node, !forward);
             });
     },
     remove() {
-        const nodesToDeselect = new Set();
+        const nodesToHide = new Set(),
+              tripleTemplates = new Set(),
+              triples = new Set(),
+              updates = new Set();
         for(const node of wiredPanels.selection)
             if(node.type === 'wire')
-                nodesToDeselect.add(node);
-
-        const nodesToSelect = new Set(), tripleTemplates = new Set(), triples = new Set(), panels = new Set();
+                wiredPanels.setNodeSelected(node, false);
         for(const node of wiredPanels.selection)
             switch(node.type) {
                 case 'socket':
-                    if(wiredPanels.selection.has(node.panel) ||
-                       (node !== node.panel.topSockets[0] && wiredPanels.selection.has(node.panel.topSockets[0]))) {
-                        nodesToDeselect.add(node);
+                    if(wiredPanels.selection.has(node.panel))
                         continue;
-                    }
                     switch(node.orientation) {
                         case 'top':
-                            nodesToSelect.add(node.panel);
+                            wiredPanels.setNodeSelected(node, false);
                             break;
                         case 'left':
                         case 'right': {
                             const triple = [], oppositeSocket = getOppositeSocket(node, triple);
                             if(wiredPanels.selection.has(oppositeSocket)) {
                                 if(node.symbol != undefined)
-                                    nodesToSelect.add(node);
+                                    nodesToHide.add(node);
                                 if(triple[1] != undefined && triple[2] != undefined)
                                     triples.add(triple);
                             } else {
-                                nodesToDeselect.add(node);
-                                nodesToSelect.add(node.wiresPerPanel.values().next().value.keys().next().value);
+                                wiredPanels.setNodeSelected(node, false);
+                                if(node.wiresPerPanel.size > 0) {
+                                    const wire = node.wiresPerPanel.values().next().value.keys().next().value;
+                                    nodesToHide.add(wire);
+                                    wiredPanels.selection.add(wire);
+                                }
                                 tripleTemplates.add({'socket': node, 'symbol': node.symbol});
                             }
                         } break;
@@ -503,24 +515,20 @@ const wiredPanels = new WiredPanels({}, {
                         'data': backend.getData(node.symbol),
                         'triples': [...backend.queryTriples(NativeBackend.queryMask.MVV, [node.symbol, 0, 0])]
                     };
-                    panels.add(update);
-                    nodesToSelect.add(node);
+                    updates.add(update);
+                    nodesToHide.add(node);
                     break;
             }
-
-        wiredPanels.setSelected(nodesToDeselect, false);
-        for(const node of nodesToSelect)
-            wiredPanels.selection.add(node);
-
-        return function(forward) {
-            setNodesVisibility(nodesToSelect, !forward);
-            for(const triple of triples)
-                backend.setTriple(triple, !forward);
-            for(const tripleTemplate of tripleTemplates)
-                fillTripleTemplate(tripleTemplate.socket, tripleTemplate.symbol, !forward);
-            for(const update of panels)
-                linkSymbol(update, !forward);
-        };
+        if(nodesToHide.size > 0 || triples.size > 0 || tripleTemplates.size > 0 || updates.size > 0)
+            return function(forward) {
+                setNodesVisibility(nodesToHide, !forward);
+                for(const triple of triples)
+                    backend.setTriple(triple, !forward);
+                for(const tripleTemplate of tripleTemplates)
+                    fillTripleTemplate(tripleTemplate.socket, tripleTemplate.symbol, !forward);
+                for(const update of updates)
+                    linkSymbol(update, !forward);
+            };
     },
     wireDrag(socket) {
         return true;
