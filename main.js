@@ -52,11 +52,8 @@ function labelOfSymbol(symbol, forceUpdate) {
         if(data) {
             entry.label = NativeBackend.encodeText(data);
             labelIndex.add(entry);
-        } else {
-            const namespaceIdentity = NativeBackend.namespaceOfSymbol(symbol),
-                  identity = NativeBackend.identityOfSymbol(symbol);
-            entry.label.textContent = namespaceIdentity+' : '+identity;
-        }
+        } else
+            entry.label = NativeBackend.encodeText(symbol);
     }
     return entry;
 }
@@ -64,7 +61,7 @@ function labelOfSymbol(symbol, forceUpdate) {
 function updateLabels(symbol, updateGeometry=false) {
     const entry = labelOfSymbol(symbol, true),
           panels = new Set();
-    for(const socket of entry.labels) {
+    for(const socket of entry.sockets) {
         socket.label.textContent = entry.label;
         panels.add(socket.panel);
     }
@@ -77,19 +74,19 @@ function setSocketVisibility(socket, visible) {
     if(visible) {
         let entry;
         if(!symbolIndex.has(socket.symbol)) {
-            entry = {'symbol': symbol, 'labels': new Set()};
+            entry = {'symbol': socket.symbol, 'sockets': new Set()};
             symbolIndex.set(socket.symbol, entry);
         } else {
             entry = symbolIndex.get(socket.symbol);
-            if(!entry.labels)
-                entry.labels = new Set();
+            if(!entry.sockets)
+                entry.sockets = new Set();
         }
-        entry.labels.add(socket);
+        entry.sockets.add(socket);
     } else {
         const entry = symbolIndex.get(socket.symbol);
-        entry.labels.delete(socket);
-        if(entry.labels.size === 0)
-            delete entry.labels;
+        entry.sockets.delete(socket);
+        if(entry.sockets.size === 0)
+            delete entry.sockets;
     }
 }
 
@@ -133,7 +130,7 @@ function linkedTriple(nodesToAdd, triple, panel) {
         const srcPanel = getPanel(socket.symbol);
         if(srcPanel) {
             const wire = wiredPanels.createWire();
-            wire.srcSocket = srcPanel.topSockets[0];
+            wire.srcSocket = srcPanel.entitySocket;
             wire.dstSocket = socket;
             nodesToAdd.add(wire);
         }
@@ -166,32 +163,34 @@ function addPanel(nodesToAdd, symbol) {
         return panel;
     panel = wiredPanels.createPanel();
     panel.symbol = symbol;
-    const namespaceIdentity = NativeBackend.namespaceOfSymbol(symbol),
-          identity = NativeBackend.identityOfSymbol(symbol);
-    panel.label.textContent = namespaceIdentity+' : '+identity;
     nodesToAdd.add(panel);
-    const topSocket = panel.topSocket = wiredPanels.createSocket();
-    topSocket.panel = panel;
-    topSocket.orientation = 'top';
-    topSocket.symbol = panel.symbol;
-    topSocket.label.textContent = labelOfSymbol(topSocket.symbol).label;
-    nodesToAdd.add(topSocket);
-    function connectWires(triple, side) {
-        const panel = getPanel(triple[0]);
-        if(!panel)
-            return;
-        for(const socket of panel[side])
-            if(socket.symbol === symbol) {
+
+    const namespaceSocket = wiredPanels.createSocket();
+    namespaceSocket.panel = panel;
+    namespaceSocket.orientation = 'top';
+    namespaceSocket.symbol = NativeBackend.concatIntoSymbol(NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces), NativeBackend.namespaceOfSymbol(symbol));
+    namespaceSocket.label.textContent = NativeBackend.encodeText(backend.getData(namespaceSocket.symbol));
+    nodesToAdd.add(namespaceSocket);
+
+    const entitySocket = panel.entitySocket = wiredPanels.createSocket();
+    entitySocket.panel = panel;
+    entitySocket.orientation = 'top';
+    entitySocket.symbol = panel.symbol;
+    entitySocket.label.textContent = labelOfSymbol(entitySocket.symbol).label;
+    nodesToAdd.add(entitySocket);
+
+    const topSockets = [namespaceSocket, entitySocket];
+    for(const topSocket of topSockets) {
+        const entry = labelOfSymbol(topSocket.symbol, true);
+        if(entry && entry.sockets)
+            for(const socket of entry.sockets) {
                 const wire = wiredPanels.createWire();
                 wire.srcSocket = topSocket;
                 wire.dstSocket = socket;
                 nodesToAdd.add(wire);
             }
     }
-    for(const triple of backend.queryTriples(NativeBackend.queryMask.VMI, [0, panel.symbol, 0]))
-        connectWires(triple, 'leftSockets');
-    for(const triple of backend.queryTriples(NativeBackend.queryMask.VIM, [0, 0, panel.symbol]))
-        connectWires(triple, 'rightSockets');
+
     for(const triple of backend.queryTriples(NativeBackend.queryMask.MVV, [panel.symbol, 0, 0]))
         linkedTriple(nodesToAdd, triple, panel);
     return panel;
@@ -288,7 +287,7 @@ function openSearch(socket) {
               panel = addPanel(nodesToAdd, symbol);
         if(socket) {
             const wire = wiredPanels.createWire();
-            wire.srcSocket = panel.topSocket;
+            wire.srcSocket = panel.entitySocket;
             wire.dstSocket = socket;
             nodesToAdd.add(wire);
         }
@@ -415,7 +414,7 @@ const wiredPanels = new WiredPanels({}, {
             }
             if(wiredPanels.selection.has(node.panel))
                 continue;
-            if(node.orientation === 'top')
+            if(node === node.panel.entitySocket)
                 updates.add(node);
             else if(node.symbol == undefined)
                 openSearch(node);
@@ -536,7 +535,7 @@ const wiredPanels = new WiredPanels({}, {
     wireConnect(node, wire, nodesToAdd) {
         if(node.type === 'panel') {
             if(wire.srcSocket.orientation !== 'top') {
-                const srcSocket = node.topSockets[0];
+                const srcSocket = node.entitySocket;
                 node = wire.srcSocket;
                 wire.srcSocket = srcSocket;
             } else {
