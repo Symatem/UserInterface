@@ -9,6 +9,15 @@ function makeListCollapsable(ul) {
     for(const child of ul.getElementsByTagName('ul'))
         if(child.parentNode.parentNode === ul)
             makeListCollapsable(child);
+    for(const li of ul.childNodes) {
+        li.onmouseover = function(event) {
+            li.classList.add('selected');
+            event.stopPropagation();
+        };
+        li.onmouseout = function(event) {
+            li.classList.remove('selected');
+        };
+    }
     const parent = ul.parentNode, triangle = parent.getElementsByClassName('triangle')[0];
     if(!triangle || triangle.parentNode !== parent)
         return;
@@ -168,7 +177,7 @@ function addPanel(nodesToAdd, symbol) {
     const namespaceSocket = wiredPanels.createSocket();
     namespaceSocket.panel = panel;
     namespaceSocket.orientation = 'top';
-    namespaceSocket.symbol = NativeBackend.concatIntoSymbol(NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces), NativeBackend.namespaceOfSymbol(symbol));
+    namespaceSocket.symbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol));
     namespaceSocket.label.textContent = NativeBackend.encodeText(backend.getData(namespaceSocket.symbol));
     nodesToAdd.add(namespaceSocket);
 
@@ -272,16 +281,19 @@ function openSearch(socket) {
         if(selection == undefined)
             return;
         let update, symbol = options.childNodes[selection].entry.symbol;
-        const create = (symbol == undefined);
-        if(create) {
+        if(symbol == undefined) {
             searchInput = searchInput.split(':');
-            symbol = backend.createSymbol(parseInt(searchInput[0]));
             update = {
                 'symbol': symbol,
-                'data': NativeBackend.decodeText(searchInput[1]),
                 'triples': []
             };
-            backend.setData(update.symbol, update.data);
+            if(searchInput[0] === 'Index')
+                symbol = backend.manifestSymbol(NativeBackend.symbolInNamespace('Index', parseInt(searchInput[1])));
+            else {
+                symbol = backend.createSymbol(parseInt(searchInput[0]));
+                update.data = NativeBackend.decodeText(searchInput[1]);
+                backend.setData(update.symbol, update.data);
+            }
         }
         const nodesToAdd = new Set(),
               panel = addPanel(nodesToAdd, symbol);
@@ -293,7 +305,7 @@ function openSearch(socket) {
         }
         wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
             setPanelVisibility(panel, forward);
-            if(create)
+            if(update)
                 linkSymbol(update, forward);
             if(socket)
                 fillTripleTemplate(socket, panel.symbol, forward);
@@ -400,6 +412,39 @@ function toggleFullscreen() {
         element.webkitRequestFullscreen();
 }
 
+function encodeHTML(element, dataValue) {
+    if(dataValue instanceof Array) {
+        const div = document.createElement('div');
+        element.appendChild(div);
+        div.classList.add('triangle');
+        const span = document.createElement('span');
+        element.appendChild(span);
+        span.innerText = 'Composite';
+        const ul = document.createElement('ul');
+        element.appendChild(ul);
+        for(const child of dataValue) {
+            const li = document.createElement('li');
+            ul.appendChild(li);
+            encodeHTML(li, child);
+        }
+    } else {
+        const span = document.createElement('span');
+        element.appendChild(span);
+        span.setAttribute('contentEditable', 'true');
+        span.innerText = NativeBackend.encodeText(dataValue);
+    }
+}
+
+function decodeHTML(element) {
+    if(element.childNodes[0].tagName === 'DIV') {
+        const dataValue = [];
+        for(const li of element.childNodes[2].childNodes)
+            dataValue.push(decodeHTML(li));
+        return dataValue;
+    } else
+        return NativeBackend.decodeText(element.innerText);
+}
+
 
 
 const wiredPanels = new WiredPanels({}, {
@@ -421,12 +466,11 @@ const wiredPanels = new WiredPanels({}, {
             else if(node.wiresPerPanel.size === 0)
                 addPanel(nodesToAdd, node.symbol);
         }
+        let update = {};
         function accept() {
-            // TODO
-            const update = modalContent.update, nodesToAdd = new Set(), nodesToRemove = new Set();
-            update.to = modalContent.getElementsByTagName('div')[0].innerText;
-            if(update.to != update.from) {
-                update.next = NativeBackend.decodeText(update.to);
+            const nodesToAdd = new Set(), nodesToRemove = new Set();
+            update.next = decodeHTML(modalContent);
+            if(update.next !== update.prev) {
                 let prevEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined],
                     nextEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined];
                 prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
@@ -448,16 +492,14 @@ const wiredPanels = new WiredPanels({}, {
             closeModal();
         }
         if(updates.size === 1) {
-            const update = {'panel': updates.values().next().value};
+            update.panel = updates.values().next().value;
             update.symbol = update.panel.symbol;
             update.prev = backend.getData(update.symbol);
-            update.from = NativeBackend.encodeText(update.prev);
-            modalContent.update = update;
-
-            // TODO
-            modalContent.innerHTML = `<div contentEditable="true">${update.from.replace('\n', '<br/>')}</div>`;
-            // makeListCollapsable(ul);
-
+            modalContent.innerHTML = '';
+            encodeHTML(modalContent, update.prev);
+            const ul = modalContent.getElementsByTagName('ul')[0];
+            if(ul)
+                makeListCollapsable(ul);
             openModal(accept);
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)

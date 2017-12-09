@@ -82,7 +82,7 @@ body {
     transition: color 0.15s linear;
 }
 
-#search .selected, li:hover {
+.selected {
     color: var(--wire-stroke);
 }
 
