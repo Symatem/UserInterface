@@ -5,19 +5,20 @@ const backend = new NativeBackend(),
       symbolIndex = new Map(),
       labelIndex = new FuzzySearchIndex();
 
+
+
+function updateListHeight(leaf, heightDiff) {
+    for(let ul = leaf; ul.tagName === 'UL'; ul = ul.parentNode.parentNode) {
+        const height = parseInt(ul.getAttribute('height'))+heightDiff;
+        ul.setAttribute('height', height);
+        ul.style.height = height;
+    }
+}
+
 function makeListCollapsable(ul) {
     for(const child of ul.getElementsByTagName('ul'))
         if(child.parentNode.parentNode === ul)
             makeListCollapsable(child);
-    for(const li of ul.childNodes) {
-        li.onmouseover = function(event) {
-            li.classList.add('selected');
-            event.stopPropagation();
-        };
-        li.onmouseout = function(event) {
-            li.classList.remove('selected');
-        };
-    }
     const parent = ul.parentNode, triangle = parent.getElementsByClassName('triangle')[0];
     if(!triangle || triangle.parentNode !== parent)
         return;
@@ -35,17 +36,79 @@ function makeListCollapsable(ul) {
         ul.style.height = (collapse) ? 0 : height;
         if(collapse)
             height *= -1;
-        for(let ul = parent.parentNode; ul.tagName === 'UL'; ul = ul.parentNode.parentNode) {
-            const value = parseInt(ul.getAttribute('height'))+height;
-            ul.setAttribute('height', value);
-            ul.style.height = value;
-        }
+        updateListHeight(parent.parentNode, height);
         event.stopPropagation();
     };
     triangle.onclick = click;
     if(triangle.nextElementSibling)
         triangle.nextElementSibling.onclick = click;
 }
+
+function encodeHTML(element, dataValue) {
+    if(dataValue instanceof Array) {
+        const triangle = document.createElement('div');
+        element.appendChild(triangle);
+        triangle.classList.add('triangle');
+        const span = document.createElement('span');
+        element.appendChild(span);
+        span.innerText = 'Composite';
+
+        const plus = document.createElement('div');
+        element.appendChild(plus);
+        plus.classList.add('plusmark');
+        plus.onclick = function(event) {
+            if(!element.classList.contains('open'))
+                return;
+            const li = document.createElement('li');
+            ul.appendChild(li);
+            encodeHTML(li, 'New Item');
+            updateListHeight(ul, li.offsetHeight);
+        };
+
+        const cross = document.createElement('div');
+        element.appendChild(cross);
+        cross.classList.add('crossmark');
+        cross.onclick = function(event) {
+            if(element.classList.contains('open'))
+                return;
+            updateListHeight(element.parentNode, -span.offsetHeight);
+            element.parentNode.removeChild(element);
+        };
+
+        const ul = document.createElement('ul');
+        element.appendChild(ul);
+        for(const child of dataValue) {
+            const li = document.createElement('li');
+            ul.appendChild(li);
+            encodeHTML(li, child);
+        }
+    } else {
+        const span = document.createElement('span');
+        element.appendChild(span);
+        span.setAttribute('contentEditable', 'true');
+        span.innerText = NativeBackend.encodeText(dataValue);
+
+        const cross = document.createElement('div');
+        element.appendChild(cross);
+        cross.classList.add('crossmark');
+        cross.onclick = function(event) {
+            updateListHeight(element.parentNode, -element.offsetHeight);
+            element.parentNode.removeChild(element);
+        };
+    }
+}
+
+function decodeHTML(element) {
+    if(element.children[0].tagName === 'DIV') {
+        const dataValue = [];
+        for(const li of element.children[2].children)
+            dataValue.push(decodeHTML(li));
+        return dataValue;
+    } else
+        return NativeBackend.decodeText(element.innerText);
+}
+
+
 
 function labelOfSymbol(symbol, forceUpdate) {
     let entry;
@@ -263,6 +326,11 @@ function linkSymbol(update, forward) {
 }
 
 function openModal(accept) {
+    if(modalContent)
+        modalContent.parentNode.removeChild(modalContent);
+    modalContent = document.createElement('div');
+    modalContent.setAttribute('id', 'modalContent');
+    modal.children[0].appendChild(modalContent);
     modalPositive.onclick = accept;
     modal.removeAttribute('style');
     modal.classList.remove('fadeOut');
@@ -280,7 +348,7 @@ function openSearch(socket) {
         closeModal();
         if(selection == undefined)
             return;
-        let update, symbol = options.childNodes[selection].entry.symbol;
+        let update, symbol = options.children[selection].entry.symbol;
         if(symbol == undefined) {
             searchInput = searchInput.split(':');
             update = {
@@ -311,7 +379,7 @@ function openSearch(socket) {
                 fillTripleTemplate(socket, panel.symbol, forward);
         });
     }
-    modalContent.innerHTML = '';
+    openModal(accept);
     const search = document.createElement('div'),
           options = document.createElement('div');
     modalContent.appendChild(search);
@@ -333,18 +401,18 @@ function openSearch(socket) {
             case 38: // Up
                 if(selection < 0)
                     break;
-                options.childNodes[selection].classList.remove('selected');
+                options.children[selection].classList.remove('selected');
                 if(--selection < 0)
-                    selection = options.childNodes.length-1;
-                options.childNodes[selection].classList.add('selected');
+                    selection = options.children.length-1;
+                options.children[selection].classList.add('selected');
                 break;
             case 40: // Down
                 if(selection < 0)
                     break;
-                options.childNodes[selection].classList.remove('selected');
-                if(++selection >= options.childNodes.length)
+                options.children[selection].classList.remove('selected');
+                if(++selection >= options.children.length)
                     selection = 0;
-                options.childNodes[selection].classList.add('selected');
+                options.children[selection].classList.add('selected');
                 break;
             default:
                 return;
@@ -375,9 +443,9 @@ function openSearch(socket) {
             element.entry = results[i].entry;
             element.textContent = element.entry.label;
             element.addEventListener('mouseover', function(event) {
-                options.childNodes[selection].classList.remove('selected');
+                options.children[selection].classList.remove('selected');
                 selection = i;
-                options.childNodes[selection].classList.add('selected');
+                options.children[selection].classList.add('selected');
             });
             element.addEventListener('click', function(event) {
                 selection = i;
@@ -388,7 +456,6 @@ function openSearch(socket) {
         }
     };
     search.onkeyup();
-    openModal(accept);
     search.focus();
 }
 
@@ -410,39 +477,6 @@ function toggleFullscreen() {
         element.mozRequestFullScreen();
     else if(element.webkitRequestFullscreen)
         element.webkitRequestFullscreen();
-}
-
-function encodeHTML(element, dataValue) {
-    if(dataValue instanceof Array) {
-        const div = document.createElement('div');
-        element.appendChild(div);
-        div.classList.add('triangle');
-        const span = document.createElement('span');
-        element.appendChild(span);
-        span.innerText = 'Composite';
-        const ul = document.createElement('ul');
-        element.appendChild(ul);
-        for(const child of dataValue) {
-            const li = document.createElement('li');
-            ul.appendChild(li);
-            encodeHTML(li, child);
-        }
-    } else {
-        const span = document.createElement('span');
-        element.appendChild(span);
-        span.setAttribute('contentEditable', 'true');
-        span.innerText = NativeBackend.encodeText(dataValue);
-    }
-}
-
-function decodeHTML(element) {
-    if(element.childNodes[0].tagName === 'DIV') {
-        const dataValue = [];
-        for(const li of element.childNodes[2].childNodes)
-            dataValue.push(decodeHTML(li));
-        return dataValue;
-    } else
-        return NativeBackend.decodeText(element.innerText);
 }
 
 
@@ -495,12 +529,11 @@ const wiredPanels = new WiredPanels({}, {
             update.panel = updates.values().next().value;
             update.symbol = update.panel.symbol;
             update.prev = backend.getData(update.symbol);
-            modalContent.innerHTML = '';
+            openModal(accept);
             encodeHTML(modalContent, update.prev);
             const ul = modalContent.getElementsByTagName('ul')[0];
             if(ul)
                 makeListCollapsable(ul);
-            openModal(accept);
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
             wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
@@ -627,13 +660,15 @@ const wiredPanels = new WiredPanels({}, {
     }
 });
 
+
+
 const modal = document.getElementById('modal'),
-      modalContent = document.getElementById('modalContent'),
       modalPositive = document.getElementById('modalPositive'),
       modalNegative = document.getElementById('modalNegative'),
       menu = document.getElementById('menu'),
       menuItems = menu.getElementsByTagName('li'),
       openFiles = document.createElement('input');
+let modalContent;
 openFiles.setAttribute('id', 'openFiles');
 openFiles.setAttribute('type', 'file');
 menu.appendChild(openFiles);

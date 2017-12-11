@@ -38,15 +38,18 @@ body {
 .box {
     color: var(--text-color);
     background-color: var(--background-color);
-    padding: 10px;
     border-radius: 10px;
     border: 1px solid var(--text-color);
     overflow: scroll;
-    max-height: calc(100% - 42px);
+    max-height: calc(100% - 22px);
+}
+
+.box > div {
+    margin: 10px;
 }
 
 #modal .box {
-    max-height: calc(100% - 85px);
+    max-height: calc(100% - 65px);
 }
 
 #modal {
@@ -78,10 +81,6 @@ body {
     background: var(--socket-stroke);
 }
 
-#search div, li {
-    transition: color 0.15s linear;
-}
-
 .selected {
     color: var(--wire-stroke);
 }
@@ -102,18 +101,57 @@ ul {
     margin: 0;
     overflow: hidden;
     transition: height 0.25s linear;
+    width: 100%;
+    position: relative;
 }
 
 li {
     margin-left: 5px;
+    color: var(--text-color);
 }
 
-li div {
+span, #search div {
+    transition: color 0.15s linear;
+}
+
+span:hover {
+    color: var(--wire-stroke);
+}
+
+#menu li div, .plusmark, .crossmark {
     width: 20px;
     height: 20px;
     display: inline-block;
     background: var(--text-color);
-    margin-right: 5px;
+}
+
+.plusmark, .crossmark {
+    position: absolute;
+    margin-right: 0px;
+    right: 0px;
+}
+
+li > .plusmark, li > .crossmark {
+    margin-top: 3px;
+}
+
+.plusmark {
+    -webkit-mask: url(icons/plusmark.svg);
+    right: 20px;
+    opacity: 0;
+    transition: opacity 0.25s linear;
+}
+
+.open > .plusmark {
+    opacity: 1;
+}
+
+#modalContent {
+    position: relative;
+}
+
+#modalContent span {
+    margin-right: 45px;
 }
 
 li div, li span, .triangle, .triangle + span {
@@ -124,17 +162,28 @@ li div, li span, .triangle, .triangle + span {
     cursor: pointer;
 }
 
+#modalPositive {
+    -webkit-mask: url(icons/checkmark.svg);
+}
+
+#modalNegative, .crossmark {
+    -webkit-mask: url(icons/crossmark.svg);
+}
+
 .triangle {
     width: 16px;
     height: 16px;
     display: inline-block;
     background: var(--text-color);
     margin: 0;
-    margin-right: 5px;
     transition: transform 0.25s linear;
     -webkit-mask: url(icons/triangle.svg);
 }
 
 .open > .triangle {
     transform: rotate(90deg);
+}
+
+.triangle, #menu li div {
+    margin-right: 5px;
 }
