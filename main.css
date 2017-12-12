@@ -118,32 +118,29 @@ span:hover {
     color: var(--wire-stroke);
 }
 
-#menu li div, .plusmark, .crossmark {
+#menu li div, .crossmark {
     width: 20px;
     height: 20px;
     display: inline-block;
     background: var(--text-color);
 }
 
-.plusmark, .crossmark {
+.crossmark {
     position: absolute;
     margin-right: 0px;
     right: 0px;
 }
 
-li > .plusmark, li > .crossmark {
+li > .crossmark {
     margin-top: 3px;
 }
 
-.plusmark {
-    -webkit-mask: url(icons/plusmark.svg);
-    right: 20px;
-    opacity: 0;
-    transition: opacity 0.25s linear;
+.crossmark {
+    transition: transform 0.25s linear;
 }
 
-.open > .plusmark {
-    opacity: 1;
+.open > .crossmark {
+    transform: rotate(45deg);
 }
 
 #modalContent {
@@ -151,7 +148,7 @@ li > .plusmark, li > .crossmark {
 }
 
 #modalContent span {
-    margin-right: 45px;
+    margin-right: 30px;
 }
 
 li div, li span, .triangle, .triangle + span {

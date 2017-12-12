@@ -52,29 +52,23 @@ function encodeHTML(element, dataValue) {
         const span = document.createElement('span');
         element.appendChild(span);
         span.innerText = 'Composite';
-
-        const plus = document.createElement('div');
-        element.appendChild(plus);
-        plus.classList.add('plusmark');
-        plus.onclick = function(event) {
-            if(!element.classList.contains('open'))
-                return;
-            const li = document.createElement('li');
-            ul.appendChild(li);
-            encodeHTML(li, 'New Item');
-            updateListHeight(ul, li.offsetHeight);
-        };
-
         const cross = document.createElement('div');
         element.appendChild(cross);
         cross.classList.add('crossmark');
         cross.onclick = function(event) {
-            if(element.classList.contains('open'))
-                return;
-            updateListHeight(element.parentNode, -span.offsetHeight);
-            element.parentNode.removeChild(element);
+            if(element.classList.contains('open')) {
+                const li = document.createElement('li');
+                ul.appendChild(li);
+                encodeHTML(li, 'New Item');
+                updateListHeight(ul, li.offsetHeight);
+            } else if(element !== modalContent) {
+                updateListHeight(element.parentNode, -span.offsetHeight);
+                element.parentNode.removeChild(element);
+            } else {
+                element.innerHTML = '';
+                encodeHTML(element, 'New Item');
+            }
         };
-
         const ul = document.createElement('ul');
         element.appendChild(ul);
         for(const child of dataValue) {
@@ -87,14 +81,15 @@ function encodeHTML(element, dataValue) {
         element.appendChild(span);
         span.setAttribute('contentEditable', 'true');
         span.innerText = NativeBackend.encodeText(dataValue);
-
-        const cross = document.createElement('div');
-        element.appendChild(cross);
-        cross.classList.add('crossmark');
-        cross.onclick = function(event) {
-            updateListHeight(element.parentNode, -element.offsetHeight);
-            element.parentNode.removeChild(element);
-        };
+        if(element !== modalContent) {
+            const cross = document.createElement('div');
+            element.appendChild(cross);
+            cross.classList.add('crossmark');
+            cross.onclick = function(event) {
+                updateListHeight(element.parentNode, -element.offsetHeight);
+                element.parentNode.removeChild(element);
+            };
+        }
     }
 }
 
@@ -124,8 +119,14 @@ function labelOfSymbol(symbol, forceUpdate) {
         if(data) {
             entry.label = NativeBackend.encodeText(data);
             labelIndex.add(entry);
-        } else
-            entry.label = NativeBackend.encodeText(symbol);
+        } else {
+            const namespaceSymbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol)),
+                  namespaceData = backend.getData(namespaceSymbol);
+            if(namespaceData)
+                entry.label = NativeBackend.encodeText(namespaceData)+':'+NativeBackend.identityOfSymbol(symbol);
+            else
+                entry.label = NativeBackend.encodeText(symbol);
+        }
     }
     return entry;
 }
@@ -351,10 +352,6 @@ function openSearch(socket) {
         let update, symbol = options.children[selection].entry.symbol;
         if(symbol == undefined) {
             searchInput = searchInput.split(':');
-            update = {
-                'symbol': symbol,
-                'triples': []
-            };
             if(searchInput[0] === 'Index')
                 symbol = backend.manifestSymbol(NativeBackend.symbolInNamespace('Index', parseInt(searchInput[1])));
             else {
@@ -362,6 +359,10 @@ function openSearch(socket) {
                 update.data = NativeBackend.decodeText(searchInput[1]);
                 backend.setData(update.symbol, update.data);
             }
+            update = {
+                'symbol': symbol,
+                'triples': []
+            };
         }
         const nodesToAdd = new Set(),
               panel = addPanel(nodesToAdd, symbol);
@@ -433,7 +434,7 @@ function openSearch(socket) {
         searchInput = search.textContent.replace('\xA0', ' ');
         const results = labelIndex.get(searchInput),
               split = searchInput.split(':');
-        if(split.length === 2 && !isNaN(parseInt(split[0])) && split[1].length > 0)
+        if(split.length === 2 && (split[0] === 'Index' || !isNaN(parseInt(split[0]))) && split[1].length > 0)
             results.unshift({'entry': {'label': 'Create'}});
         options.innerHTML = '';
         selection = (results.length > 0) ? 0 : undefined;
