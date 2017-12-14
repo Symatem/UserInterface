@@ -5,6 +5,9 @@ const backend = new NativeBackend(),
       symbolIndex = new Map(),
       labelIndex = new FuzzySearchIndex();
 
+for(const name in NativeBackend.symbolByName)
+    labelIndex.add({'label': `"${name}"`, 'symbol': NativeBackend.symbolByName[name]});
+
 
 
 function updateListHeight(leaf, heightDiff) {
