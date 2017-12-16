@@ -6,7 +6,7 @@ const backend = new NativeBackend(),
       labelIndex = new FuzzySearchIndex();
 
 for(const name in NativeBackend.symbolByName)
-    labelIndex.add({'label': `"${name}"`, 'symbol': NativeBackend.symbolByName[name]});
+    labelOfSymbol(NativeBackend.symbolByName[name], true);
 
 
 
@@ -352,35 +352,23 @@ function openSearch(socket) {
         closeModal();
         if(selection == undefined)
             return;
-        let update, symbol = options.children[selection].entry.symbol;
-        if(symbol == undefined) {
-            searchInput = searchInput.split(':');
-            if(searchInput[0] === 'Index')
-                symbol = backend.manifestSymbol(NativeBackend.symbolInNamespace('Index', parseInt(searchInput[1])));
-            else {
-                symbol = backend.createSymbol(parseInt(searchInput[0]));
-                update.data = NativeBackend.decodeText(searchInput[1]);
-                backend.setData(update.symbol, update.data);
-            }
-            update = {
-                'symbol': symbol,
-                'triples': []
-            };
-        }
+        const entry = options.children[selection].entry;
+        let update;
+        if(entry.symbol == undefined) {
+            entry.symbol = backend.createSymbol(entry.namespace);
+            update = {'symbol': entry.symbol, 'data': entry.data, 'triples': []};
+            backend.setData(update.symbol, update.data);
+        } else
+            backend.manifestSymbol(entry.symbol);
         const nodesToAdd = new Set(),
-              panel = addPanel(nodesToAdd, symbol);
-        if(socket) {
-            const wire = wiredPanels.createWire();
-            wire.srcSocket = panel.entitySocket;
-            wire.dstSocket = socket;
-            nodesToAdd.add(wire);
-        }
+              panel = (socket) ? undefined : addPanel(nodesToAdd, entry.symbol);
         wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
-            setPanelVisibility(panel, forward);
             if(update)
                 linkSymbol(update, forward);
             if(socket)
-                fillTripleTemplate(socket, panel.symbol, forward);
+                fillTripleTemplate(socket, entry.symbol, forward);
+            else
+                setPanelVisibility(panel, forward);
         });
     }
     openModal(accept);
@@ -437,8 +425,23 @@ function openSearch(socket) {
         searchInput = search.textContent.replace('\xA0', ' ');
         const results = labelIndex.get(searchInput),
               split = searchInput.split(':');
-        if(split.length === 2 && (split[0] === 'Index' || !isNaN(parseInt(split[0]))) && split[1].length > 0)
-            results.unshift({'entry': {'label': 'Create'}});
+        if(split.length === 2 && split[0].length > 0 && split[1].length > 0) {
+            const entry = {};
+            if(split[0] === 'Index' && !isNaN(parseInt(split[1]))) {
+                const index = parseInt(split[1]);
+                entry.label = 'Index:'+index;
+                entry.symbol = NativeBackend.symbolInNamespace('Index', index);
+            } else {
+                const namespace = NativeBackend.symbolByName[split[0]];
+                if(NativeBackend.namespaceOfSymbol(namespace) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
+                    entry.label = 'Create';
+                    entry.namespace = NativeBackend.identityOfSymbol(namespace);
+                    entry.data = NativeBackend.decodeText(split[1]);
+                }
+            }
+            if(entry.label)
+                results.unshift({'entry': entry});
+        }
         options.innerHTML = '';
         selection = (results.length > 0) ? 0 : undefined;
         for(let i = 0; i < results.length; ++i) {
@@ -646,7 +649,8 @@ const wiredPanels = new WiredPanels({}, {
         for(const file of files) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                backend.decodeJson(event.target.result);
+                for(const symbol of backend.decodeJson(event.target.result))
+                    labelOfSymbol(symbol, true);
             };
             reader.readAsText(file);
         }
@@ -655,6 +659,9 @@ const wiredPanels = new WiredPanels({}, {
     metaS(event) {
         const string = backend.encodeJson();
         NativeBackend.downloadAsFile(string, 'Symatem.json');
+    },
+    metaO(event) {
+        openFiles.click();
     },
     metaF(event) {
         if(event.shiftKey)
