@@ -251,7 +251,6 @@ function addPanel(nodesToAdd, symbol) {
     namespaceSocket.symbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol));
     namespaceSocket.label.textContent = NativeBackend.encodeText(backend.getData(namespaceSocket.symbol));
     nodesToAdd.add(namespaceSocket);
-    addWireFromEntitySocket(nodesToAdd, namespaceSocket);
 
     const entitySocket = panel.entitySocket = wiredPanels.createSocket();
     entitySocket.panel = panel;
@@ -269,6 +268,7 @@ function addPanel(nodesToAdd, symbol) {
         }
 
     setPanelVisibility(panel, true);
+    addWireFromEntitySocket(nodesToAdd, namespaceSocket);
     for(const triple of backend.queryTriples(NativeBackend.queryMask.MVV, [panel.symbol, 0, 0]))
         linkedTriple(nodesToAdd, triple, panel);
     return panel;
@@ -434,10 +434,10 @@ function openSearch(socket) {
                 entry.label = 'Index:'+index;
                 entry.symbol = NativeBackend.symbolInNamespace('Index', index);
             } else {
-                const namespace = NativeBackend.symbolByName[split[0]];
-                if(NativeBackend.namespaceOfSymbol(namespace) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
-                    entry.label = 'Create';
-                    entry.namespace = NativeBackend.identityOfSymbol(namespace);
+                const namespace = labelIndex.get(split[0])[0];
+                if(namespace && NativeBackend.namespaceOfSymbol(namespace.entry.symbol) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
+                    entry.label = `Create in ${namespace.entry.label}`;
+                    entry.namespace = NativeBackend.identityOfSymbol(namespace.entry.symbol);
                     entry.data = NativeBackend.decodeText(split[1]);
                 }
             }
