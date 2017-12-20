@@ -68,6 +68,7 @@ function encodeHTML(element, dataValue) {
                 updateListHeight(element.parentNode, -span.offsetHeight);
                 element.parentNode.removeChild(element);
             } else {
+                element.classList.remove('marginForMarks');
                 element.innerHTML = '';
                 encodeHTML(element, 'New Item');
             }
@@ -99,7 +100,7 @@ function encodeHTML(element, dataValue) {
 function decodeHTML(element) {
     if(element.children[0].tagName === 'DIV') {
         const dataValue = [];
-        for(const li of element.children[2].children)
+        for(const li of element.children[3].children)
             dataValue.push(decodeHTML(li));
         return dataValue;
     } else
@@ -380,7 +381,6 @@ function openSearch(socket) {
     modalContent.appendChild(options);
     options.setAttribute('id', 'search');
     search.setAttribute('contentEditable', 'true');
-    search.setAttribute('style', 'min-width: 100px; min-height: 20px;');
     search.onkeydown = function(event) {
         event.stopPropagation();
         switch(event.keyCode) {
@@ -427,7 +427,7 @@ function openSearch(socket) {
         searchInput = search.textContent.replace('\xA0', ' ');
         const results = labelIndex.get(searchInput),
               split = searchInput.split(':');
-        if(split.length === 2 && split[0].length > 0 && split[1].length > 0) {
+        if(split.length === 2) {
             const entry = {};
             if(split[0] === 'Index' && !isNaN(parseInt(split[1]))) {
                 const index = parseInt(split[1]);
@@ -540,8 +540,10 @@ const wiredPanels = new WiredPanels({}, {
             openModal(accept);
             encodeHTML(modalContent, update.prev);
             const ul = modalContent.getElementsByTagName('ul')[0];
-            if(ul)
+            if(ul) {
+                modalContent.classList.add('marginForMarks');
                 makeListCollapsable(ul);
+            }
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
             wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
