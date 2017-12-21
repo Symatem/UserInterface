@@ -11,7 +11,7 @@ for(const name in NativeBackend.symbolByName)
 
 
 function updateListHeight(leaf, heightDiff) {
-    for(let ul = leaf; ul.tagName === 'UL'; ul = ul.parentNode.parentNode) {
+    for(let ul = leaf; ul.classList.contains('ul'); ul = ul.parentNode.parentNode) {
         const height = parseInt(ul.getAttribute('height'))+heightDiff;
         ul.setAttribute('height', height);
         ul.style.height = height;
@@ -19,7 +19,7 @@ function updateListHeight(leaf, heightDiff) {
 }
 
 function makeListCollapsable(ul) {
-    for(const child of ul.getElementsByTagName('ul'))
+    for(const child of ul.getElementsByClassName('ul'))
         if(child.parentNode.parentNode === ul)
             makeListCollapsable(child);
     const parent = ul.parentNode, triangle = parent.getElementsByClassName('triangle')[0];
@@ -60,7 +60,8 @@ function encodeHTML(element, dataValue) {
         cross.classList.add('crossmark');
         cross.onclick = function(event) {
             if(element.classList.contains('open')) {
-                const li = document.createElement('li');
+                const li = document.createElement('div');
+                li.classList.add('li');
                 ul.appendChild(li);
                 encodeHTML(li, 'New Item');
                 updateListHeight(ul, li.offsetHeight);
@@ -73,10 +74,12 @@ function encodeHTML(element, dataValue) {
                 encodeHTML(element, 'New Item');
             }
         };
-        const ul = document.createElement('ul');
+        const ul = document.createElement('div');
+        ul.classList.add('ul');
         element.appendChild(ul);
         for(const child of dataValue) {
-            const li = document.createElement('li');
+            const li = document.createElement('div');
+            li.classList.add('li');
             ul.appendChild(li);
             encodeHTML(li, child);
         }
@@ -98,13 +101,12 @@ function encodeHTML(element, dataValue) {
 }
 
 function decodeHTML(element) {
-    if(element.children[0].tagName === 'DIV') {
-        const dataValue = [];
-        for(const li of element.children[3].children)
-            dataValue.push(decodeHTML(li));
-        return dataValue;
-    } else
+    if(element.children[0].tagName === 'SPAN')
         return NativeBackend.decodeText(element.innerText);
+    const dataValue = [];
+    for(const li of element.children[3].children)
+        dataValue.push(decodeHTML(li));
+    return dataValue;
 }
 
 
@@ -250,17 +252,18 @@ function addPanel(nodesToAdd, symbol) {
     namespaceSocket.panel = panel;
     namespaceSocket.orientation = 'top';
     namespaceSocket.symbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol));
-    namespaceSocket.label.textContent = NativeBackend.encodeText(backend.getData(namespaceSocket.symbol));
+    namespaceSocket.label.textContent = labelOfSymbol(namespaceSocket.symbol, true).label;
     nodesToAdd.add(namespaceSocket);
 
     const entitySocket = panel.entitySocket = wiredPanels.createSocket();
     entitySocket.panel = panel;
     entitySocket.orientation = 'top';
     entitySocket.symbol = panel.symbol;
-    entitySocket.label.textContent = labelOfSymbol(entitySocket.symbol).label;
     nodesToAdd.add(entitySocket);
+
     const entry = labelOfSymbol(entitySocket.symbol, true);
-    if(entry && entry.sockets)
+    entitySocket.label.textContent = entry.label;
+    if(entry.sockets)
         for(const socket of entry.sockets) {
             const wire = wiredPanels.createWire();
             wire.srcSocket = entitySocket;
@@ -317,8 +320,11 @@ function fillTripleTemplate(socket, symbol, forward) {
         socket.label.textContent = '';
     }
     wiredPanels.updatePanelGeometry(socket.panel);
-    if(triple[1] != undefined && triple[2] != undefined)
+    if(triple[1] != undefined && triple[2] != undefined) {
         backend.setTriple(triple, forward);
+        if(triple[1] === NativeBackend.symbolByName.Encoding)
+            updateLabels(triple[0], true);
+    }
 }
 
 function linkSymbol(update, forward) {
@@ -355,7 +361,7 @@ function openSearch(socket) {
         closeModal();
         if(selection == undefined)
             return;
-        const entry = options.children[selection].entry;
+        const entry = results.children[selection].entry;
         let update;
         if(entry.symbol == undefined) {
             entry.symbol = backend.createSymbol(entry.namespace);
@@ -375,45 +381,45 @@ function openSearch(socket) {
         });
     }
     openModal(accept);
-    const search = document.createElement('div'),
-          options = document.createElement('div');
-    modalContent.appendChild(search);
-    modalContent.appendChild(options);
-    options.setAttribute('id', 'search');
-    search.setAttribute('contentEditable', 'true');
-    search.onkeydown = function(event) {
+    const searchBar = document.createElement('span'),
+          results = document.createElement('div');
+    modalContent.appendChild(searchBar);
+    modalContent.appendChild(results);
+    results.setAttribute('id', 'searchResults');
+    searchBar.setAttribute('contentEditable', 'true');
+    searchBar.onkeydown = function(event) {
         event.stopPropagation();
         switch(event.keyCode) {
             case 13: // Enter
-                search.blur();
+                searchBar.blur();
                 accept();
                 break;
             case 27: // Escape
-                search.blur();
+                searchBar.blur();
                 closeModal();
                 break;
             case 38: // Up
                 if(selection < 0)
                     break;
-                options.children[selection].classList.remove('selected');
+                results.children[selection].classList.remove('selected');
                 if(--selection < 0)
-                    selection = options.children.length-1;
-                options.children[selection].classList.add('selected');
+                    selection = results.children.length-1;
+                results.children[selection].classList.add('selected');
                 break;
             case 40: // Down
                 if(selection < 0)
                     break;
-                options.children[selection].classList.remove('selected');
-                if(++selection >= options.children.length)
+                results.children[selection].classList.remove('selected');
+                if(++selection >= results.children.length)
                     selection = 0;
-                options.children[selection].classList.add('selected');
+                results.children[selection].classList.add('selected');
                 break;
             default:
                 return;
         }
         event.preventDefault();
     };
-    search.onkeyup = function(event) {
+    searchBar.onkeyup = function(event) {
         if(event) {
             event.stopPropagation();
             switch(event.keyCode) {
@@ -424,8 +430,8 @@ function openSearch(socket) {
                     return;
             }
         }
-        searchInput = search.textContent.replace('\xA0', ' ');
-        const results = labelIndex.get(searchInput),
+        searchInput = searchBar.textContent.replace('\xA0', ' ');
+        const items = labelIndex.get(searchInput),
               split = searchInput.split(':');
         if(split.length === 2) {
             const entry = {};
@@ -442,19 +448,19 @@ function openSearch(socket) {
                 }
             }
             if(entry.label)
-                results.unshift({'entry': entry});
+                items.unshift({'entry': entry});
         }
-        options.innerHTML = '';
-        selection = (results.length > 0) ? 0 : undefined;
-        for(let i = 0; i < results.length; ++i) {
+        results.innerHTML = '';
+        selection = (items.length > 0) ? 0 : undefined;
+        for(let i = 0; i < items.length; ++i) {
             const element = document.createElement('div');
-            options.appendChild(element);
-            element.entry = results[i].entry;
+            results.appendChild(element);
+            element.entry = items[i].entry;
             element.textContent = element.entry.label;
             element.addEventListener('mouseover', function(event) {
-                options.children[selection].classList.remove('selected');
+                results.children[selection].classList.remove('selected');
                 selection = i;
-                options.children[selection].classList.add('selected');
+                results.children[selection].classList.add('selected');
             });
             element.addEventListener('click', function(event) {
                 selection = i;
@@ -464,8 +470,8 @@ function openSearch(socket) {
                 element.classList.add('selected');
         }
     };
-    search.onkeyup();
-    search.focus();
+    searchBar.onkeyup();
+    searchBar.focus();
 }
 
 function toggleFullscreen() {
@@ -539,7 +545,7 @@ const wiredPanels = new WiredPanels({}, {
             update.prev = backend.getData(update.symbol);
             openModal(accept);
             encodeHTML(modalContent, update.prev);
-            const ul = modalContent.getElementsByTagName('ul')[0];
+            const ul = modalContent.getElementsByClassName('ul')[0];
             if(ul) {
                 modalContent.classList.add('marginForMarks');
                 makeListCollapsable(ul);
@@ -680,7 +686,7 @@ const modal = document.getElementById('modal'),
       modalPositive = document.getElementById('modalPositive'),
       modalNegative = document.getElementById('modalNegative'),
       menu = document.getElementById('menu'),
-      menuItems = menu.getElementsByTagName('li'),
+      menuItems = menu.getElementsByClassName('li'),
       openFiles = document.createElement('input');
 let modalContent;
 openFiles.setAttribute('id', 'openFiles');
@@ -688,7 +694,7 @@ openFiles.setAttribute('type', 'file');
 menu.appendChild(openFiles);
 menu.removeAttribute('style');
 menu.classList.add('fadeIn');
-makeListCollapsable(menu.getElementsByTagName('ul')[0]);
+makeListCollapsable(menu.getElementsByClassName('ul')[0]);
 document.body.insertBefore(wiredPanels.svg, modal);
 
 modalNegative.addEventListener('click', closeModal);
