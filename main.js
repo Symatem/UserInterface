@@ -203,37 +203,6 @@ function addWireFromEntitySocket(nodesToAdd, socket) {
     }
 }
 
-function linkedTriple(nodesToAdd, triple, panel) {
-    if(!panel) {
-        panel = getPanel(triple[0]);
-        if(!panel)
-            return;
-    }
-    for(let i = 1; i < 3; ++i) {
-        const socket = wiredPanels.createSocket();
-        socket.panel = panel;
-        socket.orientation = (i === 1) ? 'left' : 'right';
-        socket.symbol = triple[i];
-        socket.label.textContent = labelOfSymbol(socket.symbol).label;
-        nodesToAdd.add(socket);
-        addWireFromEntitySocket(nodesToAdd, socket);
-    }
-}
-
-function unlinkedTriple(nodesToRemove, triple, panel) {
-    if(!panel) {
-        panel = getPanel(triple[0]);
-        if(!panel)
-            return;
-    }
-    for(let i = 0; i < panel.leftSockets.length; ++i)
-        if(panel.leftSockets[i].symbol === triple[1] && panel.rightSockets[i].symbol === triple[2]) {
-            nodesToRemove.add(panel.leftSockets[i]);
-            nodesToRemove.add(panel.rightSockets[i]);
-            return;
-        }
-}
-
 function getPanel(symbol) {
     if(!symbolIndex.has(symbol))
         return;
@@ -274,7 +243,7 @@ function addPanel(nodesToAdd, symbol) {
     setPanelVisibility(panel, true);
     addWireFromEntitySocket(nodesToAdd, namespaceSocket);
     for(const triple of backend.queryTriples(NativeBackend.queryMask.MVV, [panel.symbol, 0, 0]))
-        linkedTriple(nodesToAdd, triple, panel);
+        setTripleVisibility(nodesToAdd, triple, panel, true);
     return panel;
 }
 
@@ -327,14 +296,40 @@ function fillTripleTemplate(socket, symbol, forward) {
     }
 }
 
+function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
+    if(!panel) {
+        panel = getPanel(triple[0]);
+        if(!panel)
+            return;
+    }
+    if(forward)
+        for(let i = 1; i < 3; ++i) {
+            const socket = wiredPanels.createSocket();
+            socket.panel = panel;
+            socket.orientation = (i === 1) ? 'left' : 'right';
+            socket.symbol = triple[i];
+            socket.label.textContent = labelOfSymbol(socket.symbol).label;
+            nodesToAddOrRemove.add(socket);
+            addWireFromEntitySocket(nodesToAddOrRemove, socket);
+        }
+    else
+        for(let i = 0; i < panel.leftSockets.length; ++i)
+            if(panel.leftSockets[i].symbol === triple[1] && panel.rightSockets[i].symbol === triple[2]) {
+                nodesToAddOrRemove.add(panel.leftSockets[i]);
+                nodesToAddOrRemove.add(panel.rightSockets[i]);
+                return;
+            }
+}
+
 function linkSymbol(update, forward) {
     if(forward) {
         backend.manifestSymbol(update.symbol);
         backend.setData(update.symbol, update.data);
-        for(const triple of update.triples)
-            backend.setTriple(triple, true);
-    } else
-        backend.unlinkSymbol(update.symbol);
+    }
+    for(const triple of update.triples)
+        backend.setTriple(triple, forward);
+    if(!forward)
+        backend.releaseSymbol(update.symbol);
     labelOfSymbol(update.symbol, forward);
 }
 
@@ -388,16 +383,12 @@ function openSearch(socket) {
     results.setAttribute('id', 'searchResults');
     searchBar.setAttribute('contentEditable', 'true');
     searchBar.onkeydown = function(event) {
-        event.stopPropagation();
         switch(event.keyCode) {
             case 13: // Enter
-                searchBar.blur();
                 accept();
-                break;
             case 27: // Escape
                 searchBar.blur();
-                closeModal();
-                break;
+                return;
             case 38: // Up
                 if(selection < 0)
                     break;
@@ -417,11 +408,11 @@ function openSearch(socket) {
             default:
                 return;
         }
+        event.stopPropagation();
         event.preventDefault();
     };
     searchBar.onkeyup = function(event) {
         if(event) {
-            event.stopPropagation();
             switch(event.keyCode) {
                 case 13: // Enter
                 case 27: // Escape
@@ -429,26 +420,30 @@ function openSearch(socket) {
                 case 40: // Down
                     return;
             }
+            event.stopPropagation();
+            event.preventDefault();
         }
         searchInput = searchBar.textContent.replace('\xA0', ' ');
         const items = labelIndex.get(searchInput),
               split = searchInput.split(':');
         if(split.length === 2) {
-            const entry = {};
-            if(split[0] === 'Index' && !isNaN(parseInt(split[1]))) {
-                const index = parseInt(split[1]);
-                entry.label = 'Index:'+index;
-                entry.symbol = NativeBackend.symbolInNamespace('Index', index);
-            } else {
-                const namespace = labelIndex.get(split[0])[0];
-                if(namespace && NativeBackend.namespaceOfSymbol(namespace.entry.symbol) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
+            const namespace = labelIndex.get(split[0])[0];
+            if(namespace && NativeBackend.namespaceOfSymbol(namespace.entry.symbol) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
+                const entry = {};
+                if(namespace.entry.symbol !== NativeBackend.symbolByName.Index) {
                     entry.label = `Create in ${namespace.entry.label}`;
                     entry.namespace = NativeBackend.identityOfSymbol(namespace.entry.symbol);
                     entry.data = NativeBackend.decodeText(split[1]);
+                } else {
+                    const index = parseInt(split[1]);
+                    if(!isNaN(index)) {
+                        entry.label = `Index:${index}`;
+                        entry.symbol = NativeBackend.symbolInNamespace('Index', index);
+                    }
                 }
+                if(entry.label)
+                    items.unshift({'entry': entry});
             }
-            if(entry.label)
-                items.unshift({'entry': entry});
         }
         results.innerHTML = '';
         selection = (items.length > 0) ? 0 : undefined;
@@ -457,7 +452,7 @@ function openSearch(socket) {
             results.appendChild(element);
             element.entry = items[i].entry;
             element.textContent = element.entry.label;
-            element.addEventListener('mouseover', function(event) {
+            element.addEventListener('mousemove', function(event) {
                 results.children[selection].classList.remove('selected');
                 selection = i;
                 results.children[selection].classList.add('selected');
@@ -526,9 +521,9 @@ const wiredPanels = new WiredPanels({}, {
                 nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
                 if(prevEncoding[2] != nextEncoding[2]) {
                     if(prevEncoding[2] != undefined)
-                        unlinkedTriple(nodesToRemove, prevEncoding);
+                        setTripleVisibility(nodesToRemove, prevEncoding, update.panel, false);
                     if(nextEncoding[2] != undefined)
-                        linkedTriple(nodesToAdd, nextEncoding);
+                        setTripleVisibility(nodesToAdd, nextEncoding, update.panel, true);
                 }
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
                     backend.setData(update.symbol, forward ? update.next : update.prev);
@@ -540,7 +535,7 @@ const wiredPanels = new WiredPanels({}, {
             closeModal();
         }
         if(updates.size === 1) {
-            update.panel = updates.values().next().value;
+            update.panel = updates.values().next().value.panel;
             update.symbol = update.panel.symbol;
             update.prev = backend.getData(update.symbol);
             openModal(accept);
@@ -562,15 +557,16 @@ const wiredPanels = new WiredPanels({}, {
             });
     },
     remove() {
-        const nodesToHide = new Set(),
+        const nodesToRemove = new Set(),
+              nodesToHide = new Set(),
               tripleTemplates = new Set(),
               triples = new Set(),
               updates = new Set();
         for(const node of wiredPanels.selection)
-            if(node.type === 'wire')
-                wiredPanels.setNodeSelected(node, false);
-        for(const node of wiredPanels.selection)
             switch(node.type) {
+                case 'wire':
+                    wiredPanels.setNodeSelected(node, false);
+                    break;
                 case 'socket':
                     if(wiredPanels.selection.has(node.panel))
                         continue;
@@ -591,7 +587,7 @@ const wiredPanels = new WiredPanels({}, {
                                 if(node.wiresPerPanel.size > 0) {
                                     const wire = node.wiresPerPanel.values().next().value.keys().next().value;
                                     nodesToHide.add(wire);
-                                    wiredPanels.selection.add(wire);
+                                    nodesToRemove.add(wire);
                                 }
                                 tripleTemplates.add({'socket': node, 'symbol': node.symbol});
                             }
@@ -599,16 +595,22 @@ const wiredPanels = new WiredPanels({}, {
                     }
                     break;
                 case 'panel':
-                    const update = {
+                    const outerTriples = [
+                        ...backend.queryTriples(NativeBackend.queryMask.VMV, [0, node.symbol, 0]),
+                        ...backend.queryTriples(NativeBackend.queryMask.VVM, [0, 0, node.symbol])
+                    ], update = {
                         'panel': node,
                         'symbol': node.symbol,
                         'data': backend.getData(node.symbol),
-                        'triples': [...backend.queryTriples(NativeBackend.queryMask.MVV, [node.symbol, 0, 0])]
+                        'triples': [...backend.queryTriples(NativeBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
                     };
+                    for(const triple of outerTriples)
+                        setTripleVisibility(nodesToRemove, triple, undefined, false);
                     updates.add(update);
                     nodesToHide.add(node);
                     break;
             }
+        wiredPanels.setNodesSelected(nodesToRemove, true);
         if(nodesToHide.size > 0 || triples.size > 0 || tripleTemplates.size > 0 || updates.size > 0)
             return function(forward) {
                 setNodesVisibility(nodesToHide, !forward);
@@ -696,6 +698,13 @@ menu.removeAttribute('style');
 menu.classList.add('fadeIn');
 makeListCollapsable(menu.getElementsByClassName('ul')[0]);
 document.body.insertBefore(wiredPanels.svg, modal);
+document.body.addEventListener('keydown', function(event) {
+    if(event.keyCode !== 27)
+        return;
+    closeModal();
+    event.preventDefault();
+    event.stopPropagation();
+});
 
 modalNegative.addEventListener('click', closeModal);
 menuItems[0].addEventListener('click', wiredPanels.undo);
