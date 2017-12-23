@@ -276,24 +276,33 @@ function addTripleTemplate(panel, nodesToAdd) {
     return sockets;
 }
 
-function fillTripleTemplate(socket, symbol, forward) {
-    if(forward) {
-        socket.symbol = symbol;
-        socket.label.textContent = labelOfSymbol(socket.symbol).label;
-    }
-    const triple = [];
-    getOppositeSocket(socket, triple);
-    setSocketVisibility(socket, forward);
+function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
     if(!forward) {
+        const swap = nextSymbol;
+        nextSymbol = prevSymbol;
+        prevSymbol = swap;
+    }
+    function setVisibility(triple, forward) {
+        getOppositeSocket(socket, triple);
+        setSocketVisibility(socket, forward);
+        if(triple[1] != undefined && triple[2] != undefined)
+            backend.setTriple(triple, forward);
+    }
+    const prevTriple = [], nextTriple = [];
+    if(prevSymbol != undefined)
+        setVisibility(prevTriple, false);
+    if(nextSymbol != undefined) {
+        socket.symbol = nextSymbol;
+        socket.label.textContent = labelOfSymbol(nextSymbol).label;
+        setVisibility(nextTriple, true);
+    } else {
         delete socket.symbol;
         socket.label.textContent = '';
     }
-    wiredPanels.updatePanelGeometry(socket.panel);
-    if(triple[1] != undefined && triple[2] != undefined) {
-        backend.setTriple(triple, forward);
-        if(triple[1] === NativeBackend.symbolByName.Encoding)
-            updateLabels(triple[0], true);
-    }
+    if(prevTriple[1] === NativeBackend.symbolByName.Encoding || nextTriple[1] === NativeBackend.symbolByName.Encoding)
+        updateLabels(socket.panel.symbol, true);
+    else
+        wiredPanels.updatePanelGeometry(socket.panel);
 }
 
 function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
@@ -365,12 +374,14 @@ function openSearch(socket) {
         } else
             backend.manifestSymbol(entry.symbol);
         const nodesToAdd = new Set(),
-              panel = (socket) ? undefined : addPanel(nodesToAdd, entry.symbol);
+              panel = (socket) ? undefined : addPanel(nodesToAdd, entry.symbol),
+              prevSymbol = (socket) ? socket.symbol : undefined,
+              nextSymbol = entry.symbol;
         wiredPanels.changeGraphUndoable(nodesToAdd, [], function(forward) {
             if(update)
                 linkSymbol(update, forward);
             if(socket)
-                fillTripleTemplate(socket, entry.symbol, forward);
+                replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward);
             else
                 setPanelVisibility(panel, forward);
         });
@@ -540,10 +551,9 @@ const wiredPanels = new WiredPanels({}, {
             update.prev = backend.getData(update.symbol);
             openModal(accept);
             encodeHTML(modalContent, update.prev);
-            const ul = modalContent.getElementsByClassName('ul')[0];
-            if(ul) {
+            if(update.prev instanceof Array) {
                 modalContent.classList.add('marginForMarks');
-                makeListCollapsable(ul);
+                makeListCollapsable(modalContent.getElementsByClassName('ul')[0]);
             }
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
@@ -614,10 +624,13 @@ const wiredPanels = new WiredPanels({}, {
         if(nodesToHide.size > 0 || triples.size > 0 || tripleTemplates.size > 0 || updates.size > 0)
             return function(forward) {
                 setNodesVisibility(nodesToHide, !forward);
-                for(const triple of triples)
+                for(const triple of triples) {
                     backend.setTriple(triple, !forward);
+                    if(triple[1] === NativeBackend.symbolByName.Encoding)
+                        updateLabels(triple[0], true);
+                }
                 for(const tripleTemplate of tripleTemplates)
-                    fillTripleTemplate(tripleTemplate.socket, tripleTemplate.symbol, !forward);
+                    replaceTripleTemplate(tripleTemplate.socket, undefined, tripleTemplate.symbol, !forward);
                 for(const update of updates)
                     linkSymbol(update, !forward);
             };
@@ -625,33 +638,42 @@ const wiredPanels = new WiredPanels({}, {
     wireDrag(socket) {
         return true;
     },
-    wireConnect(node, wire, nodesToAdd) {
-        if(node.type === 'panel') {
-            if(wire.srcSocket.orientation !== 'top') {
-                const srcSocket = node.entitySocket;
-                node = wire.srcSocket;
-                wire.srcSocket = srcSocket;
-            } else {
-                const rect = wiredPanels.boundingRectOfPanel(node),
-                      diffX = wire.dstSocket.primaryElement.x-(rect[0]+rect[1])/2,
-                      diffY = wire.dstSocket.primaryElement.y-(rect[2]+rect[3])/2,
-                      sockets = addTripleTemplate(node, nodesToAdd);
-                wire.dstSocket = (diffX < 0) ? sockets[0] : sockets[1];
-                wire.dstSocket.symbol = wire.srcSocket.symbol;
-                wire.dstSocket.label.textContent = labelOfSymbol(wire.dstSocket.symbol).label;
-                return setSocketVisibility.bind(this, wire.dstSocket);
+    wireConnect(node, wire) {
+        let callback;
+        const nodesToAdd = new Set([wire]), nodesToRemove = new Set();
+        if(node.type === 'panel' && wire.srcSocket.orientation === 'top') {
+            const rect = wiredPanels.boundingRectOfPanel(node),
+                  diffX = wire.dstSocket.primaryElement.x-(rect[0]+rect[1])/2,
+                  diffY = wire.dstSocket.primaryElement.y-(rect[2]+rect[3])/2,
+                  sockets = addTripleTemplate(node, nodesToAdd);
+            wire.dstSocket = (diffX < 0) ? sockets[0] : sockets[1];
+            wire.dstSocket.symbol = wire.srcSocket.symbol;
+            wire.dstSocket.label.textContent = labelOfSymbol(wire.dstSocket.symbol).label;
+            callback = setSocketVisibility.bind(this, wire.dstSocket);
+        } else {
+            if(node.type === 'panel') {
+                wire.dstSocket = wire.srcSocket;
+                wire.srcSocket = node.entitySocket;
+                node = wire.dstSocket;
+            } else if(wire.srcSocket.orientation === 'top')
+                wire.dstSocket = node;
+            else {
+                if(node.orientation !== 'top')
+                    return false;
+                wire.dstSocket = wire.srcSocket;
+                wire.srcSocket = node;
+                node = wire.dstSocket;
             }
-        } else if(wire.srcSocket.orientation !== 'top') {
-            if(node.orientation !== 'top' || wire.srcSocket.symbol != undefined)
-                return;
-            const srcSocket = node;
-            node = wire.srcSocket;
-            wire.srcSocket = srcSocket;
+            const prevSymbol = node.symbol,
+                  nextSymbol = wire.srcSocket.symbol;
+            if(node.orientation === 'top' || prevSymbol === nextSymbol)
+                return false;
+            if(node.wiresPerPanel.size > 0)
+                nodesToRemove.add(node.wiresPerPanel.values().next().value.keys().next().value);
+            callback = replaceTripleTemplate.bind(this, wire.dstSocket, prevSymbol, nextSymbol);
         }
-        if(node.symbol == undefined) {
-            wire.dstSocket = node;
-            return fillTripleTemplate.bind(this, wire.dstSocket, wire.srcSocket.symbol);
-        }
+        wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, callback);
+        return true;
     },
     paste(files) {
         files = files.files;
