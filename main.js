@@ -122,7 +122,7 @@ function labelOfSymbol(symbol, forceUpdate) {
         labelIndex.delete(entry);
     if(!entry.label || forceUpdate) {
         const data = backend.getData(symbol);
-        if(data) {
+        if(data != undefined) {
             entry.label = NativeBackend.encodeText(data);
             labelIndex.add(entry);
         } else {
@@ -133,6 +133,8 @@ function labelOfSymbol(symbol, forceUpdate) {
             else
                 entry.label = NativeBackend.encodeText(symbol);
         }
+        if(entry.label.length > 20)
+            entry.label = entry.label.substr(0, 15)+'…'+entry.label.substr(-5);
     }
     return entry;
 }
@@ -333,13 +335,12 @@ function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
 function linkSymbol(update, forward) {
     if(forward) {
         backend.manifestSymbol(update.symbol);
-        backend.setData(update.symbol, update.data);
+        backend.setRawData(update.symbol, update.data);
     }
     for(const triple of update.triples)
         backend.setTriple(triple, forward);
     if(!forward)
         backend.releaseSymbol(update.symbol);
-    labelOfSymbol(update.symbol, forward);
 }
 
 function openModal(accept) {
@@ -369,8 +370,11 @@ function openSearch(socket) {
         let update;
         if(entry.symbol == undefined) {
             entry.symbol = backend.createSymbol(entry.namespace);
-            update = {'symbol': entry.symbol, 'data': entry.data, 'triples': []};
-            backend.setData(update.symbol, update.data);
+            backend.setData(entry.symbol, entry.data);
+            update = {'symbol': entry.symbol, 'data': backend.getRawData(entry.symbol), 'triples': []};
+            const encoding = backend.getSolitary(entry.symbol, NativeBackend.symbolByName.Encoding);
+            if(encoding !== NativeBackend.symbolByName.Void)
+                update.triples.push([entry.symbol, NativeBackend.symbolByName.Encoding, encoding]);
         } else
             backend.manifestSymbol(entry.symbol);
         const nodesToAdd = new Set(),
@@ -523,21 +527,24 @@ const wiredPanels = new WiredPanels({}, {
         let update = {};
         function accept() {
             const nodesToAdd = new Set(), nodesToRemove = new Set();
-            update.next = decodeHTML(modalContent);
+            let prevEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined],
+                nextEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined];
+            prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
+            backend.setData(update.symbol, decodeHTML(modalContent));
+            nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
+            update.next = backend.getRawData(update.symbol);
             if(update.next !== update.prev) {
-                let prevEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined],
-                    nextEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined];
-                prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
-                backend.setData(update.symbol, update.next);
-                nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
                 if(prevEncoding[2] != nextEncoding[2]) {
-                    if(prevEncoding[2] != undefined)
+                    if(prevEncoding[2] != NativeBackend.symbolByName.Void)
                         setTripleVisibility(nodesToRemove, prevEncoding, update.panel, false);
-                    if(nextEncoding[2] != undefined)
+                    if(nextEncoding[2] != NativeBackend.symbolByName.Void)
                         setTripleVisibility(nodesToAdd, nextEncoding, update.panel, true);
                 }
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
-                    backend.setData(update.symbol, forward ? update.next : update.prev);
+                    if(prevEncoding[2] != nextEncoding[2])
+                        backend.setSolitary(forward ? nextEncoding : prevEncoding);
+                    const dataBytes = forward ? update.next : update.prev;
+                    backend.setRawData(update.symbol, dataBytes);
                     updateLabels(update.symbol, true);
                     setNodesVisibility(nodesToAdd, forward);
                     setNodesVisibility(nodesToRemove, !forward);
@@ -546,12 +553,13 @@ const wiredPanels = new WiredPanels({}, {
             closeModal();
         }
         if(updates.size === 1) {
+            openModal(accept);
             update.panel = updates.values().next().value.panel;
             update.symbol = update.panel.symbol;
-            update.prev = backend.getData(update.symbol);
-            openModal(accept);
-            encodeHTML(modalContent, update.prev);
-            if(update.prev instanceof Array) {
+            update.prev = backend.getRawData(update.symbol);
+            const content = backend.getData(update.symbol, update.prev);
+            encodeHTML(modalContent, content);
+            if(content instanceof Array) {
                 modalContent.classList.add('marginForMarks');
                 makeListCollapsable(modalContent.getElementsByClassName('ul')[0]);
             }
@@ -611,7 +619,7 @@ const wiredPanels = new WiredPanels({}, {
                     ], update = {
                         'panel': node,
                         'symbol': node.symbol,
-                        'data': backend.getData(node.symbol),
+                        'data': backend.getRawData(node.symbol),
                         'triples': [...backend.queryTriples(NativeBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
                     };
                     for(const triple of outerTriples)
@@ -620,20 +628,20 @@ const wiredPanels = new WiredPanels({}, {
                     nodesToHide.add(node);
                     break;
             }
-        wiredPanels.setNodesSelected(nodesToRemove, true);
-        if(nodesToHide.size > 0 || triples.size > 0 || tripleTemplates.size > 0 || updates.size > 0)
-            return function(forward) {
-                setNodesVisibility(nodesToHide, !forward);
-                for(const triple of triples) {
-                    backend.setTriple(triple, !forward);
-                    if(triple[1] === NativeBackend.symbolByName.Encoding)
-                        updateLabels(triple[0], true);
-                }
-                for(const tripleTemplate of tripleTemplates)
-                    replaceTripleTemplate(tripleTemplate.socket, undefined, tripleTemplate.symbol, !forward);
-                for(const update of updates)
-                    linkSymbol(update, !forward);
-            };
+        if(wiredPanels.selection.size === 0 && nodesToHide.size === 0 && tripleTemplates.size === 0)
+            return;
+        wiredPanels.changeGraphUndoable([], new Set([...wiredPanels.selection, ...nodesToRemove]), function(forward) {
+            setNodesVisibility(nodesToHide, !forward);
+            for(const triple of triples) {
+                backend.setTriple(triple, !forward);
+                if(triple[1] === NativeBackend.symbolByName.Encoding)
+                    updateLabels(triple[0], true);
+            }
+            for(const tripleTemplate of tripleTemplates)
+                replaceTripleTemplate(tripleTemplate.socket, undefined, tripleTemplate.symbol, !forward);
+            for(const update of updates)
+                linkSymbol(update, !forward);
+        });
     },
     wireDrag(socket) {
         return true;
@@ -682,8 +690,17 @@ const wiredPanels = new WiredPanels({}, {
         for(const file of files) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                for(const symbol of backend.decodeJson(event.target.result))
+                const nodesToRemove = new Set();
+                for(const symbol of backend.decodeJson(event.target.result)) {
+                    const panel = getPanel(symbol);
+                    if(panel) {
+                        nodesToRemove.add(panel);
+                        setPanelVisibility(panel, false);
+                    }
                     labelOfSymbol(symbol, true);
+                }
+                wiredPanels.changeGraph([], nodesToRemove);
+                wiredPanels.resetActionStack();
             };
             reader.readAsText(file);
         }
