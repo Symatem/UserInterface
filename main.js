@@ -1,12 +1,14 @@
 import WiredPanels from '../WiredPanels/WiredPanels.js';
+import BasicBackend from '../SymatemJS/BasicBackend.js';
 import NativeBackend from '../SymatemJS/NativeBackend.js';
 import FuzzySearchIndex from './FuzzySearchIndex.js';
+
 const backend = new NativeBackend(),
       symbolIndex = new Map(),
       labelIndex = new FuzzySearchIndex();
 
-for(const name in NativeBackend.symbolByName)
-    labelOfSymbol(NativeBackend.symbolByName[name], true);
+for(const name in BasicBackend.symbolByName)
+    labelOfSymbol(BasicBackend.symbolByName[name], true);
 
 
 
@@ -87,7 +89,7 @@ function encodeHTML(element, dataValue) {
         const span = document.createElement('span');
         element.appendChild(span);
         span.setAttribute('contentEditable', 'true');
-        span.innerText = NativeBackend.encodeText(dataValue);
+        span.innerText = BasicBackend.encodeText(dataValue);
         if(element !== modalContent) {
             const cross = document.createElement('div');
             element.appendChild(cross);
@@ -102,7 +104,7 @@ function encodeHTML(element, dataValue) {
 
 function decodeHTML(element) {
     if(element.children[0].tagName === 'SPAN')
-        return NativeBackend.decodeText(element.innerText);
+        return BasicBackend.decodeText(element.innerText);
     const dataValue = [];
     for(const li of element.children[3].children)
         dataValue.push(decodeHTML(li));
@@ -123,15 +125,15 @@ function labelOfSymbol(symbol, forceUpdate) {
     if(!entry.label || forceUpdate) {
         const data = backend.getData(symbol);
         if(data != undefined) {
-            entry.label = NativeBackend.encodeText(data);
+            entry.label = BasicBackend.encodeText(data);
             labelIndex.add(entry);
         } else {
-            const namespaceSymbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol)),
+            const namespaceSymbol = BasicBackend.symbolInNamespace('Namespaces', BasicBackend.namespaceOfSymbol(symbol)),
                   namespaceData = backend.getData(namespaceSymbol);
             if(namespaceData)
-                entry.label = NativeBackend.encodeText(namespaceData)+':'+NativeBackend.identityOfSymbol(symbol);
+                entry.label = BasicBackend.encodeText(namespaceData)+':'+BasicBackend.identityOfSymbol(symbol);
             else
-                entry.label = NativeBackend.encodeText(symbol);
+                entry.label = BasicBackend.encodeText(symbol);
         }
         if(entry.label.length > 20)
             entry.label = entry.label.substr(0, 15)+'…'+entry.label.substr(-5);
@@ -222,7 +224,7 @@ function addPanel(nodesToAdd, symbol) {
     const namespaceSocket = wiredPanels.createSocket();
     namespaceSocket.panel = panel;
     namespaceSocket.orientation = 'top';
-    namespaceSocket.symbol = NativeBackend.symbolInNamespace('Namespaces', NativeBackend.namespaceOfSymbol(symbol));
+    namespaceSocket.symbol = BasicBackend.symbolInNamespace('Namespaces', BasicBackend.namespaceOfSymbol(symbol));
     namespaceSocket.label.textContent = labelOfSymbol(namespaceSocket.symbol, true).label;
     nodesToAdd.add(namespaceSocket);
 
@@ -244,7 +246,7 @@ function addPanel(nodesToAdd, symbol) {
 
     setPanelVisibility(panel, true);
     addWireFromEntitySocket(nodesToAdd, namespaceSocket);
-    for(const triple of backend.queryTriples(NativeBackend.queryMask.MVV, [panel.symbol, 0, 0]))
+    for(const triple of backend.queryTriples(BasicBackend.queryMask.MVV, [panel.symbol, 0, 0]))
         setTripleVisibility(nodesToAdd, triple, panel, true);
     return panel;
 }
@@ -301,7 +303,7 @@ function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
         delete socket.symbol;
         socket.label.textContent = '';
     }
-    if(prevTriple[1] === NativeBackend.symbolByName.Encoding || nextTriple[1] === NativeBackend.symbolByName.Encoding)
+    if(prevTriple[1] === BasicBackend.symbolByName.Encoding || nextTriple[1] === BasicBackend.symbolByName.Encoding)
         updateLabels(socket.panel.symbol, true);
     else
         wiredPanels.updatePanelGeometry(socket.panel);
@@ -372,9 +374,9 @@ function openSearch(socket) {
             entry.symbol = backend.createSymbol(entry.namespace);
             backend.setData(entry.symbol, entry.data);
             update = {'symbol': entry.symbol, 'data': backend.getRawData(entry.symbol), 'triples': []};
-            const encoding = backend.getSolitary(entry.symbol, NativeBackend.symbolByName.Encoding);
-            if(encoding !== NativeBackend.symbolByName.Void)
-                update.triples.push([entry.symbol, NativeBackend.symbolByName.Encoding, encoding]);
+            const encoding = backend.getSolitary(entry.symbol, BasicBackend.symbolByName.Encoding);
+            if(encoding !== BasicBackend.symbolByName.Void)
+                update.triples.push([entry.symbol, BasicBackend.symbolByName.Encoding, encoding]);
         } else
             backend.manifestSymbol(entry.symbol);
         const nodesToAdd = new Set(),
@@ -443,17 +445,17 @@ function openSearch(socket) {
               split = searchInput.split(':');
         if(split.length === 2) {
             const namespace = labelIndex.get(split[0])[0];
-            if(namespace && NativeBackend.namespaceOfSymbol(namespace.entry.symbol) === NativeBackend.identityOfSymbol(NativeBackend.symbolByName.Namespaces)) {
+            if(namespace && BasicBackend.namespaceOfSymbol(namespace.entry.symbol) === BasicBackend.identityOfSymbol(BasicBackend.symbolByName.Namespaces)) {
                 const entry = {};
-                if(namespace.entry.symbol !== NativeBackend.symbolByName.Index) {
+                if(namespace.entry.symbol !== BasicBackend.symbolByName.Index) {
                     entry.label = `Create in ${namespace.entry.label}`;
-                    entry.namespace = NativeBackend.identityOfSymbol(namespace.entry.symbol);
-                    entry.data = NativeBackend.decodeText(split[1]);
+                    entry.namespace = BasicBackend.identityOfSymbol(namespace.entry.symbol);
+                    entry.data = BasicBackend.decodeText(split[1]);
                 } else {
                     const index = parseInt(split[1]);
                     if(!isNaN(index)) {
                         entry.label = `Index:${index}`;
-                        entry.symbol = NativeBackend.symbolInNamespace('Index', index);
+                        entry.symbol = BasicBackend.symbolInNamespace('Index', index);
                     }
                 }
                 if(entry.label)
@@ -527,17 +529,17 @@ const wiredPanels = new WiredPanels({}, {
         let update = {};
         function accept() {
             const nodesToAdd = new Set(), nodesToRemove = new Set();
-            let prevEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined],
-                nextEncoding = [update.symbol, NativeBackend.symbolByName.Encoding, undefined];
+            let prevEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined],
+                nextEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined];
             prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
             backend.setData(update.symbol, decodeHTML(modalContent));
             nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
             update.next = backend.getRawData(update.symbol);
             if(update.next !== update.prev) {
                 if(prevEncoding[2] != nextEncoding[2]) {
-                    if(prevEncoding[2] != NativeBackend.symbolByName.Void)
+                    if(prevEncoding[2] != BasicBackend.symbolByName.Void)
                         setTripleVisibility(nodesToRemove, prevEncoding, update.panel, false);
-                    if(nextEncoding[2] != NativeBackend.symbolByName.Void)
+                    if(nextEncoding[2] != BasicBackend.symbolByName.Void)
                         setTripleVisibility(nodesToAdd, nextEncoding, update.panel, true);
                 }
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
@@ -614,13 +616,13 @@ const wiredPanels = new WiredPanels({}, {
                     break;
                 case 'panel':
                     const outerTriples = [
-                        ...backend.queryTriples(NativeBackend.queryMask.VMV, [0, node.symbol, 0]),
-                        ...backend.queryTriples(NativeBackend.queryMask.VVM, [0, 0, node.symbol])
+                        ...backend.queryTriples(BasicBackend.queryMask.VMV, [0, node.symbol, 0]),
+                        ...backend.queryTriples(BasicBackend.queryMask.VVM, [0, 0, node.symbol])
                     ], update = {
                         'panel': node,
                         'symbol': node.symbol,
                         'data': backend.getRawData(node.symbol),
-                        'triples': [...backend.queryTriples(NativeBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
+                        'triples': [...backend.queryTriples(BasicBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
                     };
                     for(const triple of outerTriples)
                         setTripleVisibility(nodesToRemove, triple, undefined, false);
@@ -634,7 +636,7 @@ const wiredPanels = new WiredPanels({}, {
             setNodesVisibility(nodesToHide, !forward);
             for(const triple of triples) {
                 backend.setTriple(triple, !forward);
-                if(triple[1] === NativeBackend.symbolByName.Encoding)
+                if(triple[1] === BasicBackend.symbolByName.Encoding)
                     updateLabels(triple[0], true);
             }
             for(const tripleTemplate of tripleTemplates)
@@ -708,7 +710,7 @@ const wiredPanels = new WiredPanels({}, {
     },
     metaS(event) {
         const string = backend.encodeJson();
-        NativeBackend.downloadAsFile(string, 'Symatem.json');
+        BasicBackend.downloadAsFile(string, 'Symatem.json');
     },
     metaO(event) {
         openFiles.click();
