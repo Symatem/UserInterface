@@ -685,11 +685,13 @@ const wiredPanels = new WiredPanels({}, {
         wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, callback);
         return true;
     },
-    paste(files) {
-        files = files.files;
+    paste(dataTransfer) {
+        const files = dataTransfer.files;
         if(!files || files.length !== 1)
-            return false;
+            return dataTransfer.types.indexOf('Files') >= 0;
         for(const file of files) {
+            if(file.type !== 'application/json')
+                continue;
             const reader = new FileReader();
             reader.onload = function(event) {
                 const nodesToRemove = new Set();
@@ -705,8 +707,9 @@ const wiredPanels = new WiredPanels({}, {
                 wiredPanels.resetActionStack();
             };
             reader.readAsText(file);
+            return true;
         }
-        return true;
+        return false;
     },
     metaS(event) {
         const string = backend.encodeJson();
@@ -782,4 +785,7 @@ openFiles.addEventListener('change', function(event) {
     li.parentNode.insertBefore(label, li);
     label.appendChild(li);
 }
-menuItems[10].addEventListener('click', toggleFullscreen);
+menuItems[10].addEventListener('click', function() {
+    // TODO Open options
+});
+menuItems[11].addEventListener('click', toggleFullscreen);
