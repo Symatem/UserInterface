@@ -280,17 +280,27 @@ function addTripleTemplate(panel, nodesToAdd) {
     return sockets;
 }
 
+function findLabelsOfComposite(composite, labelsToUpdate) {
+    for(const triple of backend.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Encoding, composite]))
+        labelsToUpdate.add(triple[0]);
+    for(const triple of backend.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Default, composite]))
+        findLabelsOfComposite(triple[0], labelsToUpdate);
+}
+
 function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
     if(!forward) {
         const swap = nextSymbol;
         nextSymbol = prevSymbol;
         prevSymbol = swap;
     }
+    let changedTriples = false;
     function setVisibility(triple, forward) {
         getOppositeSocket(socket, triple);
         setSocketVisibility(socket, forward);
-        if(triple[1] != undefined && triple[2] != undefined)
+        if(triple[1] != undefined && triple[2] != undefined) {
+            changedTriples = true;
             backend.setTriple(triple, forward);
+        }
     }
     const prevTriple = [], nextTriple = [];
     if(prevSymbol != undefined)
@@ -303,10 +313,15 @@ function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
         delete socket.symbol;
         socket.label.textContent = '';
     }
+    const labelsToUpdate = new Set();
+    findLabelsOfComposite(socket.panel.symbol, labelsToUpdate);
     if(prevTriple[1] === BasicBackend.symbolByName.Encoding || nextTriple[1] === BasicBackend.symbolByName.Encoding)
-        updateLabels(socket.panel.symbol, true);
+        labelsToUpdate.add(socket.panel.symbol);
     else
         wiredPanels.updatePanelGeometry(socket.panel);
+    if(changedTriples)
+        for(const symbol of labelsToUpdate)
+            updateLabels(symbol, true);
 }
 
 function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
@@ -372,8 +387,7 @@ function openSearch(socket) {
         let update;
         if(entry.symbol == undefined) {
             entry.symbol = backend.createSymbol(entry.namespace);
-            backend.setData(entry.symbol, entry.data);
-            update = {'symbol': entry.symbol, 'data': backend.getRawData(entry.symbol), 'triples': []};
+            update = {'symbol': entry.symbol, 'data': backend.setData(entry.symbol, entry.data), 'triples': []};
             const encoding = backend.getSolitary(entry.symbol, BasicBackend.symbolByName.Encoding);
             if(encoding !== BasicBackend.symbolByName.Void)
                 update.triples.push([entry.symbol, BasicBackend.symbolByName.Encoding, encoding]);
@@ -532,9 +546,8 @@ const wiredPanels = new WiredPanels({}, {
             let prevEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined],
                 nextEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined];
             prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
-            backend.setData(update.symbol, decodeHTML(modalContent));
+            update.next = backend.setData(update.symbol, decodeHTML(modalContent));
             nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
-            update.next = backend.getRawData(update.symbol);
             if(update.next !== update.prev) {
                 if(prevEncoding[2] != nextEncoding[2]) {
                     if(prevEncoding[2] != BasicBackend.symbolByName.Void)
@@ -542,6 +555,9 @@ const wiredPanels = new WiredPanels({}, {
                     if(nextEncoding[2] != BasicBackend.symbolByName.Void)
                         setTripleVisibility(nodesToAdd, nextEncoding, update.panel, true);
                 }
+                const labelsToUpdate = new Set();
+                for(const triple of backend.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Count, update.symbol]))
+                    findLabelsOfComposite(triple[0], labelsToUpdate);
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
                     if(prevEncoding[2] != nextEncoding[2])
                         backend.setSolitary(forward ? nextEncoding : prevEncoding);
@@ -550,6 +566,8 @@ const wiredPanels = new WiredPanels({}, {
                     updateLabels(update.symbol, true);
                     setNodesVisibility(nodesToAdd, forward);
                     setNodesVisibility(nodesToRemove, !forward);
+                    for(const symbol of labelsToUpdate)
+                        updateLabels(symbol, true);
                 });
             }
             closeModal();
@@ -581,6 +599,7 @@ const wiredPanels = new WiredPanels({}, {
               nodesToHide = new Set(),
               tripleTemplates = new Set(),
               triples = new Set(),
+              labelsToUpdate = new Set(),
               updates = new Set();
         for(const node of wiredPanels.selection)
             switch(node.type) {
@@ -600,8 +619,12 @@ const wiredPanels = new WiredPanels({}, {
                             if(wiredPanels.selection.has(oppositeSocket)) {
                                 if(node.symbol != undefined)
                                     nodesToHide.add(node);
-                                if(triple[1] != undefined && triple[2] != undefined)
+                                if(triple[1] != undefined && triple[2] != undefined && node.orientation === 'left') {
                                     triples.add(triple);
+                                    if(triple[1] === BasicBackend.symbolByName.Encoding)
+                                        labelsToUpdate.add(triple[0]);
+                                    findLabelsOfComposite(triple[0], labelsToUpdate);
+                                }
                             } else {
                                 wiredPanels.setNodeSelected(node, false);
                                 if(node.wiresPerPanel.size > 0) {
@@ -634,11 +657,10 @@ const wiredPanels = new WiredPanels({}, {
             return;
         wiredPanels.changeGraphUndoable([], new Set([...wiredPanels.selection, ...nodesToRemove]), function(forward) {
             setNodesVisibility(nodesToHide, !forward);
-            for(const triple of triples) {
+            for(const triple of triples)
                 backend.setTriple(triple, !forward);
-                if(triple[1] === BasicBackend.symbolByName.Encoding)
-                    updateLabels(triple[0], true);
-            }
+            for(const symbol of labelsToUpdate)
+                updateLabels(symbol, true);
             for(const tripleTemplate of tripleTemplates)
                 replaceTripleTemplate(tripleTemplate.socket, undefined, tripleTemplate.symbol, !forward);
             for(const update of updates)
