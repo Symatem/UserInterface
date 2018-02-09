@@ -7,7 +7,7 @@ const backend = new NativeBackend(),
       symbolIndex = new Map(),
       labelIndex = new FuzzySearchIndex();
 
-for(const name in BasicBackend.symbolByName)
+for(const name of Object.getOwnPropertyNames(BasicBackend.symbolByName))
     labelOfSymbol(BasicBackend.symbolByName[name], true);
 
 
@@ -352,7 +352,7 @@ function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
 function linkSymbol(update, forward) {
     if(forward) {
         backend.manifestSymbol(update.symbol);
-        backend.setRawData(update.symbol, update.data);
+        backend.setRawData(update.symbol, update.dataBytes, update.dataLength);
     }
     for(const triple of update.triples)
         backend.setTriple(triple, forward);
@@ -387,7 +387,12 @@ function openSearch(socket) {
         let update;
         if(entry.symbol == undefined) {
             entry.symbol = backend.createSymbol(entry.namespace);
-            update = {'symbol': entry.symbol, 'data': backend.setData(entry.symbol, entry.data), 'triples': []};
+            update = {
+                'symbol': entry.symbol,
+                'dataBytes': backend.setData(entry.symbol, entry.data),
+                'dataLength': backend.getLength(entry.symbol),
+                'triples': []
+            };
             const encoding = backend.getSolitary(entry.symbol, BasicBackend.symbolByName.Encoding);
             if(encoding !== BasicBackend.symbolByName.Void)
                 update.triples.push([entry.symbol, BasicBackend.symbolByName.Encoding, encoding]);
@@ -543,26 +548,26 @@ const wiredPanels = new WiredPanels({}, {
         let update = {};
         function accept() {
             const nodesToAdd = new Set(), nodesToRemove = new Set();
-            let prevEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined],
-                nextEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined];
-            prevEncoding[2] = backend.getSolitary(prevEncoding[0], prevEncoding[1]);
-            update.next = backend.setData(update.symbol, decodeHTML(modalContent));
-            nextEncoding[2] = backend.getSolitary(nextEncoding[0], nextEncoding[1]);
-            if(update.next !== update.prev) {
-                if(prevEncoding[2] != nextEncoding[2]) {
-                    if(prevEncoding[2] != BasicBackend.symbolByName.Void)
-                        setTripleVisibility(nodesToRemove, prevEncoding, update.panel, false);
-                    if(nextEncoding[2] != BasicBackend.symbolByName.Void)
-                        setTripleVisibility(nodesToAdd, nextEncoding, update.panel, true);
+            update.prevEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined],
+            update.nextEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined];
+            update.prevEncoding[2] = backend.getSolitary(update.prevEncoding[0], update.prevEncoding[1]);
+            update.nextDataBytes = backend.setData(update.symbol, decodeHTML(modalContent));
+            update.nextDataLength = backend.getLength(update.symbol);
+            update.nextEncoding[2] = backend.getSolitary(update.nextEncoding[0], update.nextEncoding[1]);
+            if(update.prevDataBytes !== update.nextDataBytes || update.prevDataLength !== update.nextDataLength) {
+                if(update.prevEncoding[2] != update.nextEncoding[2]) {
+                    if(update.prevEncoding[2] != BasicBackend.symbolByName.Void)
+                        setTripleVisibility(nodesToRemove, update.prevEncoding, update.panel, false);
+                    if(update.nextEncoding[2] != BasicBackend.symbolByName.Void)
+                        setTripleVisibility(nodesToAdd, update.nextEncoding, update.panel, true);
                 }
                 const labelsToUpdate = new Set();
                 for(const triple of backend.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Count, update.symbol]))
                     findLabelsOfComposite(triple[0], labelsToUpdate);
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
-                    if(prevEncoding[2] != nextEncoding[2])
-                        backend.setSolitary(forward ? nextEncoding : prevEncoding);
-                    const dataBytes = forward ? update.next : update.prev;
-                    backend.setRawData(update.symbol, dataBytes);
+                    if(update.prevEncoding[2] != update.nextEncoding[2])
+                        backend.setSolitary(forward ? update.nextEncoding : update.prevEncoding);
+                    backend.setRawData(update.symbol, forward ? update.nextDataBytes : update.prevDataBytes, forward ? update.nextDataLength : update.prevDataLength);
                     updateLabels(update.symbol, true);
                     setNodesVisibility(nodesToAdd, forward);
                     setNodesVisibility(nodesToRemove, !forward);
@@ -576,8 +581,9 @@ const wiredPanels = new WiredPanels({}, {
             openModal(accept);
             update.panel = updates.values().next().value.panel;
             update.symbol = update.panel.symbol;
-            update.prev = backend.getRawData(update.symbol);
-            const content = backend.getData(update.symbol, update.prev);
+            update.prevDataBytes = backend.getRawData(update.symbol);
+            update.prevDataLength = backend.getLength(update.symbol);
+            const content = backend.getData(update.symbol, update.prevDataBytes, update.prevDataLength);
             encodeHTML(modalContent, content);
             if(content instanceof Array) {
                 modalContent.classList.add('marginForMarks');
@@ -644,7 +650,8 @@ const wiredPanels = new WiredPanels({}, {
                     ], update = {
                         'panel': node,
                         'symbol': node.symbol,
-                        'data': backend.getRawData(node.symbol),
+                        'dataBytes': backend.getRawData(node.symbol),
+                        'dataLength': backend.getLength(node.symbol),
                         'triples': [...backend.queryTriples(BasicBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
                     };
                     for(const triple of outerTriples)
