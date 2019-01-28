@@ -16,8 +16,8 @@ for(const name of Object.getOwnPropertyNames(BasicBackend.symbolByName))
 function updateListHeight(leaf, heightDiff) {
     for(let ul = leaf; ul.classList.contains('ul'); ul = ul.parentNode.parentNode) {
         const height = parseInt(ul.getAttribute('height'))+heightDiff;
-        ul.setAttribute('height', height);
-        ul.style.height = height;
+        ul.setAttribute('height', height+'px');
+        ul.style.height = height+'px';
     }
 }
 
@@ -30,8 +30,8 @@ function makeListCollapsable(ul) {
         return;
     ul.style.height = 'auto';
     const height = ul.offsetHeight;
-    ul.setAttribute('height', height);
-    ul.style.height = 0;
+    ul.setAttribute('height', height+'px');
+    ul.style.height = '0px';
     function click(event) {
         let height = parseInt(ul.getAttribute('height'));
         const collapse = parent.classList.contains('open');
@@ -39,7 +39,7 @@ function makeListCollapsable(ul) {
             parent.classList.remove('open');
         else
             parent.classList.add('open');
-        ul.style.height = (collapse) ? 0 : height;
+        ul.style.height = (collapse) ? '0px' : height+'px';
         if(collapse)
             height *= -1;
         updateListHeight(parent.parentNode, height);
@@ -55,9 +55,9 @@ function encodeHTML(element, dataValue) {
         const triangle = document.createElement('div');
         element.appendChild(triangle);
         triangle.classList.add('triangle');
-        const span = document.createElement('span');
-        element.appendChild(span);
-        span.innerText = 'Composite';
+        const label = document.createElement('span');
+        element.appendChild(label);
+        label.innerText = 'Composite';
         const cross = document.createElement('div');
         element.appendChild(cross);
         cross.classList.add('crossmark');
@@ -69,7 +69,7 @@ function encodeHTML(element, dataValue) {
                 encodeHTML(li, 'New Item');
                 updateListHeight(ul, li.offsetHeight);
             } else if(element !== modalContent) {
-                updateListHeight(element.parentNode, -span.offsetHeight);
+                updateListHeight(element.parentNode, -label.offsetHeight);
                 element.parentNode.removeChild(element);
             } else {
                 element.classList.remove('marginForMarks');
@@ -86,11 +86,13 @@ function encodeHTML(element, dataValue) {
             ul.appendChild(li);
             encodeHTML(li, child);
         }
+        element.classList.add('marginForMarks');
+        makeListCollapsable(element.getElementsByClassName('ul')[0]);
     } else {
-        const span = document.createElement('span');
-        element.appendChild(span);
-        span.setAttribute('contentEditable', 'true');
-        span.innerText = BasicBackend.encodeText(dataValue);
+        const label = document.createElement('span');
+        element.appendChild(label);
+        label.setAttribute('contentEditable', 'true');
+        label.innerText = BasicBackend.encodeText(dataValue);
         if(element !== modalContent) {
             const cross = document.createElement('div');
             element.appendChild(cross);
@@ -413,7 +415,7 @@ function openSearch(socket) {
         });
     }
     openModal(accept);
-    const searchBar = document.createElement('span'),
+    const searchBar = document.createElement('div'),
           results = document.createElement('div');
     modalContent.appendChild(searchBar);
     modalContent.appendChild(results);
@@ -586,10 +588,6 @@ const wiredPanels = new WiredPanels({}, {
             update.prevDataLength = ontology.getLength(update.symbol);
             const content = ontology.getData(update.symbol, update.prevDataBytes, update.prevDataLength);
             encodeHTML(modalContent, content);
-            if(content instanceof Array) {
-                modalContent.classList.add('marginForMarks');
-                makeListCollapsable(modalContent.getElementsByClassName('ul')[0]);
-            }
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
             wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
