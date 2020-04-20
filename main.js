@@ -1,15 +1,14 @@
 import WiredPanels from '../WiredPanels/WiredPanels.js';
-import BasicBackend from '../SymatemJS/BasicBackend.js';
-import NativeBackend from '../SymatemJS/NativeBackend.js';
+import { Utils, SymbolInternals, JavaScriptBackend } from '../SymatemJS/SymatemJS.mjs';
 import FuzzySearchIndex from './FuzzySearchIndex.js';
 
 const symbolIndex = new Map(),
       labelIndex = new FuzzySearchIndex(),
-      ontology = new NativeBackend();
-ontology.initBasicOntology();
+      backend = new JavaScriptBackend();
+backend.initPredefinedSymbols();
 
-for(const name of Object.getOwnPropertyNames(BasicBackend.symbolByName))
-    labelOfSymbol(BasicBackend.symbolByName[name], true);
+for(const name of Object.getOwnPropertyNames(backend.symbolByName))
+    labelOfSymbol(backend.symbolByName[name], true);
 
 
 
@@ -92,7 +91,7 @@ function encodeHTML(element, dataValue) {
         const label = document.createElement('span');
         element.appendChild(label);
         label.setAttribute('contentEditable', 'true');
-        label.innerText = BasicBackend.encodeText(dataValue);
+        label.innerText = Utils.encodeText(dataValue);
         if(element !== modalContent) {
             const cross = document.createElement('div');
             element.appendChild(cross);
@@ -107,7 +106,7 @@ function encodeHTML(element, dataValue) {
 
 function decodeHTML(element) {
     if(element.children[0].tagName === 'SPAN')
-        return BasicBackend.decodeText(element.innerText);
+        return Utils.decodeText(element.innerText);
     const dataValue = [];
     for(const li of element.children[3].children)
         dataValue.push(decodeHTML(li));
@@ -126,17 +125,17 @@ function labelOfSymbol(symbol, forceUpdate) {
     if(entry.label && forceUpdate != undefined)
         labelIndex.delete(entry);
     if(!entry.label || forceUpdate) {
-        const data = ontology.getData(symbol);
+        const data = backend.getData(symbol);
         if(data != undefined) {
-            entry.label = BasicBackend.encodeText(data);
+            entry.label = Utils.encodeText(data);
             labelIndex.add(entry);
         } else {
-            const namespaceSymbol = BasicBackend.symbolInNamespace('Namespaces', BasicBackend.namespaceOfSymbol(symbol)),
-                  namespaceData = ontology.getData(namespaceSymbol);
+            const namespaceSymbol = backend.symbolInNamespace('Namespaces', SymbolInternals.namespaceOfSymbol(symbol)),
+                  namespaceData = backend.getData(namespaceSymbol);
             if(namespaceData)
-                entry.label = BasicBackend.encodeText(namespaceData)+':'+BasicBackend.identityOfSymbol(symbol);
+                entry.label = Utils.encodeText(namespaceData)+':'+SymbolInternals.identityOfSymbol(symbol);
             else
-                entry.label = BasicBackend.encodeText(symbol);
+                entry.label = Utils.encodeText(symbol);
         }
         if(entry.label.length > 20)
             entry.label = entry.label.substr(0, 15)+'…'+entry.label.substr(-5);
@@ -227,7 +226,7 @@ function addPanel(nodesToAdd, symbol) {
     const namespaceSocket = wiredPanels.createSocket();
     namespaceSocket.panel = panel;
     namespaceSocket.orientation = 'top';
-    namespaceSocket.symbol = BasicBackend.symbolInNamespace('Namespaces', BasicBackend.namespaceOfSymbol(symbol));
+    namespaceSocket.symbol = backend.symbolInNamespace('Namespaces', SymbolInternals.namespaceOfSymbol(symbol));
     namespaceSocket.label.textContent = labelOfSymbol(namespaceSocket.symbol, true).label;
     nodesToAdd.add(namespaceSocket);
 
@@ -249,7 +248,7 @@ function addPanel(nodesToAdd, symbol) {
 
     setPanelVisibility(panel, true);
     addWireFromEntitySocket(nodesToAdd, namespaceSocket);
-    for(const triple of ontology.queryTriples(BasicBackend.queryMask.MVV, [panel.symbol, 0, 0]))
+    for(const triple of backend.queryTriples(backend.queryMasks.MVV, [panel.symbol, 0, 0]))
         setTripleVisibility(nodesToAdd, triple, panel, true);
     return panel;
 }
@@ -284,9 +283,9 @@ function addTripleTemplate(panel, nodesToAdd) {
 }
 
 function findLabelsOfComposite(composite, labelsToUpdate) {
-    for(const triple of ontology.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Encoding, composite]))
+    for(const triple of backend.queryTriples(backend.queryMasks.VMM, [0, backend.symbolByName.Encoding, composite]))
         labelsToUpdate.add(triple[0]);
-    for(const triple of ontology.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Default, composite]))
+    for(const triple of backend.queryTriples(backend.queryMasks.VMM, [0, backend.symbolByName.Default, composite]))
         findLabelsOfComposite(triple[0], labelsToUpdate);
 }
 
@@ -302,7 +301,7 @@ function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
         setSocketVisibility(socket, forward);
         if(triple[1] != undefined && triple[2] != undefined) {
             changedTriples = true;
-            ontology.setTriple(triple, forward);
+            backend.setTriple(triple, forward);
         }
     }
     const prevTriple = [], nextTriple = [];
@@ -318,7 +317,7 @@ function replaceTripleTemplate(socket, prevSymbol, nextSymbol, forward) {
     }
     const labelsToUpdate = new Set();
     findLabelsOfComposite(socket.panel.symbol, labelsToUpdate);
-    if(prevTriple[1] === BasicBackend.symbolByName.Encoding || nextTriple[1] === BasicBackend.symbolByName.Encoding)
+    if(prevTriple[1] === backend.symbolByName.Encoding || nextTriple[1] === backend.symbolByName.Encoding)
         labelsToUpdate.add(socket.panel.symbol);
     else
         wiredPanels.updatePanelGeometry(socket.panel);
@@ -353,14 +352,12 @@ function setTripleVisibility(nodesToAddOrRemove, triple, panel, forward) {
 }
 
 function linkSymbol(update, forward) {
-    if(forward) {
-        ontology.manifestSymbol(update.symbol);
-        ontology.setRawData(update.symbol, update.dataBytes, update.dataLength);
-    }
+    if(forward)
+        backend.setRawData(update.symbol, update.dataBytes, update.dataLength);
     for(const triple of update.triples)
-        ontology.setTriple(triple, forward);
+        backend.setTriple(triple, forward);
     if(!forward)
-        ontology.releaseSymbol(update.symbol);
+        backend.releaseSymbol(update.symbol);
 }
 
 function openModal(accept) {
@@ -389,18 +386,17 @@ function openSearch(socket) {
         const entry = results.children[selection].entry;
         let update;
         if(entry.symbol == undefined) {
-            entry.symbol = ontology.createSymbol(entry.namespace);
+            entry.symbol = backend.createSymbol(entry.namespace);
             update = {
                 'symbol': entry.symbol,
-                'dataBytes': ontology.setData(entry.symbol, entry.data),
-                'dataLength': ontology.getLength(entry.symbol),
+                'dataBytes': backend.setData(entry.symbol, entry.data),
+                'dataLength': backend.getLength(entry.symbol),
                 'triples': []
             };
-            const encoding = ontology.getSolitary(entry.symbol, BasicBackend.symbolByName.Encoding);
-            if(encoding !== BasicBackend.symbolByName.Void)
-                update.triples.push([entry.symbol, BasicBackend.symbolByName.Encoding, encoding]);
-        } else
-            ontology.manifestSymbol(entry.symbol);
+            const encoding = backend.getPairOptionally(entry.symbol, backend.symbolByName.Encoding);
+            if(encoding !== backend.symbolByName.Void)
+                update.triples.push([entry.symbol, backend.symbolByName.Encoding, encoding]);
+        }
         const nodesToAdd = new Set(),
               panel = (socket) ? undefined : addPanel(nodesToAdd, entry.symbol),
               prevSymbol = (socket) ? socket.symbol : undefined,
@@ -467,17 +463,17 @@ function openSearch(socket) {
               split = searchInput.split(':');
         if(split.length === 2) {
             const namespace = labelIndex.get(split[0])[0];
-            if(namespace && BasicBackend.namespaceOfSymbol(namespace.entry.symbol) === BasicBackend.identityOfSymbol(BasicBackend.symbolByName.Namespaces)) {
+            if(namespace && SymbolInternals.namespaceOfSymbol(namespace.entry.symbol) === SymbolInternals.identityOfSymbol(backend.symbolByName.Namespaces)) {
                 const entry = {};
-                if(namespace.entry.symbol !== BasicBackend.symbolByName.Index) {
+                if(namespace.entry.symbol !== backend.symbolByName.Index) {
                     entry.label = `Create in ${namespace.entry.label}`;
-                    entry.namespace = BasicBackend.identityOfSymbol(namespace.entry.symbol);
-                    entry.data = BasicBackend.decodeText(split[1]);
+                    entry.namespace = SymbolInternals.identityOfSymbol(namespace.entry.symbol);
+                    entry.data = Utils.decodeText(split[1]);
                 } else {
                     const index = parseInt(split[1]);
                     if(!isNaN(index)) {
                         entry.label = `Index:${index}`;
-                        entry.symbol = BasicBackend.symbolInNamespace('Index', index);
+                        entry.symbol = backend.symbolInNamespace('Index', index);
                     }
                 }
                 if(entry.label)
@@ -551,26 +547,24 @@ const wiredPanels = new WiredPanels({}, {
         let update = {};
         function accept() {
             const nodesToAdd = new Set(), nodesToRemove = new Set();
-            update.prevEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined],
-            update.nextEncoding = [update.symbol, BasicBackend.symbolByName.Encoding, undefined];
-            update.prevEncoding[2] = ontology.getSolitary(update.prevEncoding[0], update.prevEncoding[1]);
-            update.nextDataBytes = ontology.setData(update.symbol, decodeHTML(modalContent));
-            update.nextDataLength = ontology.getLength(update.symbol);
-            update.nextEncoding[2] = ontology.getSolitary(update.nextEncoding[0], update.nextEncoding[1]);
+            update.prevEncoding = backend.getPairOptionally(update.symbol, backend.symbolByName.Encoding);
+            update.nextDataBytes = backend.setData(update.symbol, decodeHTML(modalContent));
+            update.nextDataLength = backend.getLength(update.symbol);
+            update.nextEncoding = backend.getPairOptionally(update.symbol, backend.symbolByName.Encoding);
             if(update.prevDataBytes !== update.nextDataBytes || update.prevDataLength !== update.nextDataLength) {
-                if(update.prevEncoding[2] != update.nextEncoding[2]) {
-                    if(update.prevEncoding[2] != BasicBackend.symbolByName.Void)
+                if(update.prevEncoding != update.nextEncoding) {
+                    if(update.prevEncoding != backend.symbolByName.Void)
                         setTripleVisibility(nodesToRemove, update.prevEncoding, update.panel, false);
-                    if(update.nextEncoding[2] != BasicBackend.symbolByName.Void)
+                    if(update.nextEncoding != backend.symbolByName.Void)
                         setTripleVisibility(nodesToAdd, update.nextEncoding, update.panel, true);
                 }
                 const labelsToUpdate = new Set();
-                for(const triple of ontology.queryTriples(BasicBackend.queryMask.VMM, [0, BasicBackend.symbolByName.Count, update.symbol]))
+                for(const triple of backend.queryTriples(backend.queryMasks.VMM, [0, backend.symbolByName.Count, update.symbol]))
                     findLabelsOfComposite(triple[0], labelsToUpdate);
                 wiredPanels.changeGraphUndoable(nodesToAdd, nodesToRemove, function(forward) {
-                    if(update.prevEncoding[2] != update.nextEncoding[2])
-                        ontology.setSolitary(forward ? update.nextEncoding : update.prevEncoding);
-                    ontology.setRawData(update.symbol, forward ? update.nextDataBytes : update.prevDataBytes, forward ? update.nextDataLength : update.prevDataLength);
+                    if(update.prevEncoding != update.nextEncoding)
+                        backend.getAndSetPairs(update.symbol, backend.symbolByName.Encoding, [forward ? update.nextEncoding : update.prevEncoding]);
+                    backend.setRawData(update.symbol, forward ? update.nextDataBytes : update.prevDataBytes, forward ? update.nextDataLength : update.prevDataLength);
                     updateLabels(update.symbol, true);
                     setNodesVisibility(nodesToAdd, forward);
                     setNodesVisibility(nodesToRemove, !forward);
@@ -584,9 +578,9 @@ const wiredPanels = new WiredPanels({}, {
             openModal(accept);
             update.panel = updates.values().next().value.panel;
             update.symbol = update.panel.symbol;
-            update.prevDataBytes = ontology.getRawData(update.symbol);
-            update.prevDataLength = ontology.getLength(update.symbol);
-            const content = ontology.getData(update.symbol, update.prevDataBytes, update.prevDataLength);
+            update.prevDataBytes = backend.getRawData(update.symbol);
+            update.prevDataLength = backend.getLength(update.symbol);
+            const content = backend.getData(update.symbol, update.prevDataBytes, update.prevDataLength);
             encodeHTML(modalContent, content);
         }
         if(nodesToAdd.size > 0 || nodesToRemove.size > 0)
@@ -626,7 +620,7 @@ const wiredPanels = new WiredPanels({}, {
                                     nodesToHide.add(node);
                                 if(triple[1] != undefined && triple[2] != undefined && node.orientation === 'left') {
                                     triples.add(triple);
-                                    if(triple[1] === BasicBackend.symbolByName.Encoding)
+                                    if(triple[1] === backend.symbolByName.Encoding)
                                         labelsToUpdate.add(triple[0]);
                                     findLabelsOfComposite(triple[0], labelsToUpdate);
                                 }
@@ -644,14 +638,14 @@ const wiredPanels = new WiredPanels({}, {
                     break;
                 case 'panel':
                     const outerTriples = [
-                        ...ontology.queryTriples(BasicBackend.queryMask.VMV, [0, node.symbol, 0]),
-                        ...ontology.queryTriples(BasicBackend.queryMask.VVM, [0, 0, node.symbol])
+                        ...backend.queryTriples(backend.queryMasks.VMV, [0, node.symbol, 0]),
+                        ...backend.queryTriples(backend.queryMasks.VVM, [0, 0, node.symbol])
                     ], update = {
                         'panel': node,
                         'symbol': node.symbol,
-                        'dataBytes': ontology.getRawData(node.symbol),
-                        'dataLength': ontology.getLength(node.symbol),
-                        'triples': [...ontology.queryTriples(BasicBackend.queryMask.MVV, [node.symbol, 0, 0]), ...outerTriples]
+                        'dataBytes': backend.getRawData(node.symbol),
+                        'dataLength': backend.getLength(node.symbol),
+                        'triples': [...backend.queryTriples(backend.queryMasks.MVV, [node.symbol, 0, 0]), ...outerTriples]
                     };
                     for(const triple of outerTriples)
                         setTripleVisibility(nodesToRemove, triple, undefined, false);
@@ -664,7 +658,7 @@ const wiredPanels = new WiredPanels({}, {
         wiredPanels.changeGraphUndoable([], new Set([...wiredPanels.selection, ...nodesToRemove]), function(forward) {
             setNodesVisibility(nodesToHide, !forward);
             for(const triple of triples)
-                ontology.setTriple(triple, !forward);
+                backend.setTriple(triple, !forward);
             for(const symbol of labelsToUpdate)
                 updateLabels(symbol, true);
             for(const tripleTemplate of tripleTemplates)
@@ -723,7 +717,7 @@ const wiredPanels = new WiredPanels({}, {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const nodesToRemove = new Set();
-                for(const symbol of ontology.decodeJson(event.target.result)) {
+                for(const symbol of backend.decodeJson(event.target.result)) {
                     const panel = getPanel(symbol);
                     if(panel) {
                         nodesToRemove.add(panel);
@@ -740,8 +734,8 @@ const wiredPanels = new WiredPanels({}, {
         return false;
     },
     metaS(event) {
-        const string = ontology.encodeJson();
-        BasicBackend.downloadAsFile(string, 'Symatem.json');
+        const string = backend.encodeJson();
+        Utils.downloadAsFile(string, 'Symatem.json');
     },
     metaO(event) {
         openFiles.click();
@@ -798,7 +792,7 @@ menuItems[7].addEventListener('click', wiredPanels.deleteSelected);
 menuItems[8].addEventListener('click', wiredPanels.eventListeners.metaS);
 menuItems[8].setAttribute('draggable', 'true');
 menuItems[8].addEventListener('dragstart', function(event) {
-    const string = ontology.encodeJson();
+    const string = backend.encodeJson();
     event.dataTransfer.setData('text/plain', string);
     event.dataTransfer.setData('application/json', string);
     event.dataTransfer.effectAllowed = 'all';
