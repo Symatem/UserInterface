@@ -1,0 +1,9 @@
+{
+    "version": "0.0.1",
+    "name": "SymatemUI",
+    "license": "MIT",
+    "dependencies": {
+        "SymatemJS": "https://github.com/Symatem/SymatemJS",
+        "SvgPanels": "https://github.com/Symatem/SvgPanels"
+    }
+}

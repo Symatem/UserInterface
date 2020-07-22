@@ -1,0 +1,23 @@
+name: pages
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14.5.0
+      - run: npm install
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          keep_files: true
+          force_orphan: true
+          publish_dir: .
+          publish_branch: gh-pages
