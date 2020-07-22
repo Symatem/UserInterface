@@ -9,10 +9,13 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          path: .
       - uses: actions/setup-node@v1
         with:
           node-version: 14.5.0
-      - run: npm install
+      - run: npm install ; rm .gitignore
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
