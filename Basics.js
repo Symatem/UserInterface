@@ -206,11 +206,6 @@ export class TriplePanel extends BasicSymbolPanel {
             }
             rowPanel.insertChild(new SymbolThumbnailPanel(vec2.create(), symbol, () => {
                 rowPanel.children[0].selected = !rowPanel.children[0].selected;
-                if(isHeader) {
-                    const betaCollection = SymbolMap.get(this.betaIndex, rowPanel.children[0].symbol);
-                    for(const [symbol, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
-                        gammaRow.children[0].selected = rowPanel.children[0].selected;
-                }
             }));
             rowPanel.children[0].backendUpdate();
             rowPanel.recalculateLayout();
@@ -232,6 +227,12 @@ export class TriplePanel extends BasicSymbolPanel {
                 this.indexedListPanel.contentPanel.insertChild(betaCollection);
                 makeRow(betaCollection, triple[1], true);
                 SymbolMap.set(this.betaIndex, triple[1], betaCollection);
+                betaCollection.registerActionEvent(() => {
+                    const header = betaCollection.children[0].children[0];
+                    header.selected = !header.selected;
+                    for(const [symbol, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
+                        gammaRow.children[0].selected = header.selected;
+                });
                 betaCollection.registerFocusEvent(betaCollection.children[0].backgroundPanel.node);
                 betaCollection.registerFocusNavigationEvent(1);
             } else
