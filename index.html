@@ -12,7 +12,7 @@
         <script type="module">
             import { vec2 } from './node_modules/SvgPanels/Panel.js';
             import { LabelPanel, RectPanel, SpeechBalloonPanel, TextFieldPanel, ImagePanel } from './node_modules/SvgPanels/Atoms.js';
-            import { ContainerPanel, RootPanel, AdaptiveSizeContainerPanel, CheckboxPanel, PanePanel, TilingPanel, ToolbarPanel, ConfigurableSplitViewPanel, TabsViewPanel, ScrollViewPanel, SliderPanel, CollapsibleViewPanel } from './node_modules/SvgPanels/Containers.js';
+            import { ContainerPanel, RootPanel, AdaptiveSizeContainerPanel, CheckboxPanel, PanePanel, TilingPanel, ToolbarPanel, SplitViewPanel, TabPanel, TabsViewPanel, ScrollViewPanel, SliderPanel, CollapsibleViewPanel } from './node_modules/SvgPanels/Containers.js';
             import { AnimatedLogoPanel } from './Logo.js';
             import { backend, TriplePanel, SymbolDataContentPanel, NamespacePanel } from './Basics.js';
             import { RepositoryPanel } from './VersionControl.js';
@@ -50,50 +50,60 @@
             headerSplit.otherAxisSizeStays = true;
             headerSplit.otherAxisAlignment = 'stretch';
             headerSplit.registerFocusNavigationEvent();
-            root.toolBar = new ToolbarPanel(vec2.create());
-            headerSplit.insertChild(root.toolBar);
-            root.toolBar.addEntries([
+            root.toolBarPanel = new ToolbarPanel(vec2.create());
+            headerSplit.insertChild(root.toolBarPanel);
+            root.toolBarPanel.addEntries([
                 {'content': new ImagePanel(vec2.create(), vec2.fromValues(15, 15), 'logo.svg'), 'children': [
                     {'content': 'About', 'action': (event) => {
                         root.openModalOverlay(event, aboutPanel);
-                    }}
+                    }},
+                    {'content': 'Toggle Fullscreen', 'shortCut': '^⌘F', 'action': root.toggleFullscreen.bind(root)}
+                ]},
+                {'content': 'Navigate', 'children': [
+                    {'content': 'In', 'shortCut': '↹', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'in')},
+                    {'content': 'Out', 'shortCut': '⇧↹', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'out')},
+                    {'content': 'Left', 'shortCut': '←', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'left')},
+                    {'content': 'Right', 'shortCut': '→', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'right')},
+                    {'content': 'Up', 'shortCut': '↑', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'up')},
+                    {'content': 'Down', 'shortCut': '↓', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'down')},
+                    {'content': 'Use', 'shortCut': '↵', 'action': (event) => {
+                        if(root.focusedPanel)
+                            root.focusedPanel.actionOrSelect(event);
+                    }},
+                    {'content': 'Invert Selection', 'shortCut': '⇧↵', 'action': (event) => {
+                        if(root.focusedPanel) {
+                            event.shiftKey = true;
+                            root.focusedPanel.actionOrSelect(event);
+                        }
+                    }},
+                    {'content': 'Defocus', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'defocus')}
                 ]},
                 {'content': 'Layout', 'children': [
-                    {'content': 'Toggle Fullscreen', 'shortCut': '^⌘F', 'action': root.toggleFullscreen.bind(root)},
-                    {'content': 'Split Horizontally', 'shortCut': '⌘H'},
-                    {'content': 'Split Vertically', 'shortCut': '⌘V'},
-                    {'content': 'Make Tabs', 'shortCut': '⌘T'},
-                    {'content': 'Test', 'children': [
-                        {'content': 'Pointless'},
-                        {'content': 'Test', 'children': [
-                            {'content': 'Pointless'}
-                        ]}
-                    ]}
+                    {'content': 'Split Horizontally', 'shortCut': '⇧⌘H', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 0, 'propagateTo': 'parent'})},
+                    {'content': 'Split Vertically', 'shortCut': '⇧⌘V', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 1, 'propagateTo': 'parent'})},
+                    {'content': 'Create Tab', 'shortCut': '⇧⌘T', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 2, 'propagateTo': 'parent'})},
+                    {'content': 'Move Left', 'shortCut': '⇧⌘←', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'left', 'propagateTo': 'parent'})},
+                    {'content': 'Move Right', 'shortCut': '⇧⌘→', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'right', 'propagateTo': 'parent'})},
+                    {'content': 'Move Up', 'shortCut': '⇧⌘↑', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'up', 'propagateTo': 'parent'})},
+                    {'content': 'Move Down', 'shortCut': '⇧⌘↓', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'down', 'propagateTo': 'parent'})}
+                ]},
+                {'content': 'Select', 'children': [
+                    {'content': 'All', 'shortCut': '⌘A', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'all')},
+                    {'content': 'None', 'shortCut': '⇧⌘A', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'none')},
+                    {'content': 'Inverse', 'shortCut': '⌘I', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'inverse')}
                 ]},
                 {'content': 'Edit', 'children': [
                     {'content': 'Undo', 'shortCut': '⌘Z'},
                     {'content': 'Redo', 'shortCut': '⇧⌘Z'},
-                    {'content': 'Delete', 'shortCut': '⌫'},
-                    {'content': 'Cut', 'shortCut': '⌘X'},
-                    {'content': 'Copy', 'shortCut': '⌘C'},
-                    {'content': 'Paste', 'shortCut': '⌘V'}
-                ]},
-                {'content': 'Select', 'children': [
-                    {'content': 'All', 'shortCut': '⌘A'},
-                    {'content': 'None', 'shortCut': '⇧⌘A'}
-                ]},
-                {'content': 'Navigate', 'children': [
-                    {'content': 'In', 'shortCut': '↹', 'action': root.navigateFocus.bind(root, 'in')},
-                    {'content': 'Out', 'shortCut': '⇧↹', 'action': root.navigateFocus.bind(root, 'out')},
-                    {'content': 'Left', 'shortCut': '←', 'action': root.navigateFocus.bind(root, 'left')},
-                    {'content': 'Right', 'shortCut': '→', 'action': root.navigateFocus.bind(root, 'right')},
-                    {'content': 'Up', 'shortCut': '↑', 'action': root.navigateFocus.bind(root, 'up')},
-                    {'content': 'Down', 'shortCut': '↓', 'action': root.navigateFocus.bind(root, 'down')},
-                    {'content': 'Defocus', 'action': root.navigateFocus.bind(root, 'defocus')}
+                    {'content': 'Copy', 'shortCut': '⌘C', 'action': (event) => {
+                        if(root.focusedPanel)
+                            root.focusedPanel.dispatchEvent({'type': 'drag'});
+                    }},
+                    {'content': 'Paste', 'shortCut': '⌘V', 'action': root.drop.bind(root)}
                 ]}
             ]);
 
-            const splitViewA = new ConfigurableSplitViewPanel(vec2.create(), vec2.create());
+            const splitViewA = new SplitViewPanel(vec2.create(), vec2.create());
             {
                 splitViewA.padding = vec2.fromValues(2, 2);
                 headerSplit.insertChild(splitViewA);
@@ -108,7 +118,7 @@
                     splitViewA.insertChild(paneB);
                     paneB.relativeSize = 0.25;
                 }
-                const splitViewB = new ConfigurableSplitViewPanel(vec2.fromValues(0, 0), vec2.fromValues(0, 0));
+                const splitViewB = new SplitViewPanel(vec2.fromValues(0, 0), vec2.fromValues(0, 0));
                 {
                     splitViewA.insertChild(splitViewB);
                     splitViewB.relativeSize = 0.5;
@@ -122,30 +132,17 @@
                     {
                         splitViewB.insertChild(tabsView);
                         tabsView.relativeSize = 0.5;
-                        tabsView.enableTabDragging = true;
-                        for(let i = 0; i < 4; ++i) {
-                            const tabHandle = tabsView.addTab(),
-                                  tabLabel = new LabelPanel(vec2.create());
-                            tabHandle.insertChild(tabLabel);
-                            tabLabel.text = 'Tab '+i;
-                            tabHandle.recalculateLayout();
-                        }
-                        tabsView.tabsContainer.recalculateLayout();
-                        tabsView.tabsContainer.children[0].content = new SymbolDataContentPanel(vec2.create());
                         const paneA = new PanePanel(vec2.create(), vec2.create());
                         const slider = new SliderPanel(vec2.fromValues(0, 0), vec2.fromValues(50, 20));
                         slider.updatePosition();
                         paneA.insertChild(slider);
-                        tabsView.tabsContainer.children[1].content = paneA;
                         const paneB = new PanePanel(vec2.create(), vec2.create());
                         const checkbox = new CheckboxPanel(vec2.fromValues(0, 0));
                         checkbox.updatePosition();
                         paneB.insertChild(checkbox);
-                        tabsView.tabsContainer.children[2].content = paneB;
                         const paneC = new PanePanel(vec2.create(), vec2.create());
                         const collapsibleView = new CollapsibleViewPanel(vec2.fromValues(0, 0), vec2.fromValues(200, 200));
                         paneC.insertChild(collapsibleView);
-                        tabsView.tabsContainer.children[3].content = paneC;
                         collapsibleView.updatePosition();
                         collapsibleView.headerPanel.text = 'Collapsible View';
                         collapsibleView.horizontalSplit.recalculateLayout();
@@ -154,6 +151,16 @@
                         rectPanel.node.style.fill = 'grey';
                         collapsibleView.contentPanel.insertChild(rectPanel);
                         collapsibleView.contentPanel.recalculateLayout();
+                        const tabContent = [
+                            new SymbolDataContentPanel(vec2.create()),
+                            paneA, paneB, paneC
+                        ];
+                        for(let i = 0; i < tabContent.length; ++i) {
+                            const tabLabel = new LabelPanel(vec2.create());
+                            tabLabel.text = 'Tab '+i;
+                            tabsView.addTab(new TabPanel(tabContent[i], tabLabel), i == 0);
+                        }
+                        tabsView.tabsContainer.recalculateLayout();
                     }
                 }
             }

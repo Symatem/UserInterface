@@ -21,11 +21,9 @@ function triggerObservedSymbol(symbol) {
 }
 
 export class SymbolThumbnailPanel extends LabelPanel {
-    constructor(position, symbol, onActivate) {
+    constructor(position, symbol) {
         super(position);
         this._symbol = symbol;
-        if(onActivate)
-            this.addEventListener('action', onActivate);
         this.registerFocusEvent(this.node);
         this.registerDragEvent(() => {
             const panel = new SymbolThumbnailPanel(vec2.create(), this._symbol);
@@ -55,10 +53,10 @@ export class SymbolThumbnailPanel extends LabelPanel {
         const data = backend.getData(this.symbol);
         this.text = (data) ? Utils.encodeText(data) : '#'+this.symbol;
     }
-};
+}
 
 export class BasicSymbolPanel extends PanePanel {
-    constructor(position, symbol, onClick, acceptsDrop=(item) => item instanceof SymbolThumbnailPanel) {
+    constructor(position, symbol, acceptsDrop=(item) => item instanceof SymbolThumbnailPanel) {
         super(position, vec2.create());
         this.addEventListener('parentchange', (event) => {
             if(this.parent)
@@ -77,7 +75,7 @@ export class BasicSymbolPanel extends PanePanel {
         this.headerPanel.axis = 0;
         this.headerPanel.sizeAlongAxis = 0;
         this.headerSplit.insertChild(this.headerPanel);
-        this.symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol, onClick);
+        this.symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol);
         this.symbolPanel.registerDropEvent(acceptsDrop,
             (item) => {
                 this.symbol = item.symbol;
@@ -102,7 +100,7 @@ export class BasicSymbolPanel extends PanePanel {
         this.symbolPanel.backendUpdate();
         this.headerPanel.recalculateLayout();
     }
-};
+}
 
 const indexNames = ['EAV', 'AVE', 'VEA', 'EVA', 'AEV', 'VAE'],
       triplePermutation = [
@@ -116,18 +114,18 @@ const indexNames = ['EAV', 'AVE', 'VEA', 'EVA', 'AEV', 'VAE'],
 
 export class TriplePanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.UTF8) {
-        super(position, symbol, () => {
-            this.symbolPanel.selected = !this.symbolPanel.selected;
-            for(const [symbol, betaCollection] of SymbolMap.entries(this.betaIndex)) {
-                betaCollection.children[0].children[0].selected = this.symbolPanel.selected;
-                for(const [symbol, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
-                    gammaRow.children[0].selected = this.symbolPanel.selected;
-            }
+        super(position, symbol);
+        PanePanel.registerPaneType(this.constructor, 'Triple Panel', 'T');
+        this.addEventListener('toolbarcontext', (event) => {
+            this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
+                {'content': 'Add Triple', 'shortCut': 'T'},
+                {'content': 'Delete Selected', 'shortCut': '⌫'}
+            ]});
         });
         const indexOptions = [];
         indexNames.forEach((name, index) => {
             const indexOption = new ButtonPanel(vec2.create(), 'toolbarMenuButton');
-            indexOption.addEventListener('action', (event) => {
+            indexOption.registerActionEvent((event) => {
                 this.indexSelection.overlayPanel.root.closeModalOverlay(event);
                 this.index = index;
             });
@@ -137,6 +135,7 @@ export class TriplePanel extends BasicSymbolPanel {
         this.indexSelection = new DropDownMenuPanel(vec2.create(), new LabelPanel(vec2.create()), indexOptions);
         this.headerPanel.insertChild(this.indexSelection);
         this.indexedListPanel = new IndexedListPanel(vec2.create(), vec2.create());
+        this.indexedListPanel.enableSelectionRect = true;
         this.indexedListPanel.contentPanel.registerFocusNavigationEvent();
         this.headerSplit.insertChild(this.indexedListPanel);
         this.betaIndex = SymbolMap.create();
@@ -204,13 +203,13 @@ export class TriplePanel extends BasicSymbolPanel {
                 rowPanel.backgroundPanel = new RectPanel(vec2.create(), vec2.create());
                 rowPanel.backgroundPanel.node.classList.add('indexedListHeader');
             }
-            rowPanel.insertChild(new SymbolThumbnailPanel(vec2.create(), symbol, () => {
-                rowPanel.children[0].selected = !rowPanel.children[0].selected;
-            }));
-            rowPanel.children[0].backendUpdate();
+            const symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol);
+            rowPanel.insertChild(symbolPanel);
+            symbolPanel.registerSelectEvent();
+            symbolPanel.backendUpdate();
             rowPanel.recalculateLayout();
             rowPanel.otherAxisSizeStays = true;
-            betaCollection.insertChild(rowPanel);
+            betaCollection.insertChild(rowPanel, 0);
             return rowPanel;
         }
         for(const [symbol, betaCollection] of SymbolMap.entries(this.betaIndex)) {
@@ -224,15 +223,17 @@ export class TriplePanel extends BasicSymbolPanel {
             if(!betaCollection) {
                 betaCollection = new TilingPanel(vec2.create(), vec2.create());
                 betaCollection.gammaSet = SymbolMap.create();
-                this.indexedListPanel.contentPanel.insertChild(betaCollection);
-                makeRow(betaCollection, triple[1], true);
-                SymbolMap.set(this.betaIndex, triple[1], betaCollection);
-                betaCollection.registerActionEvent(() => {
-                    const header = betaCollection.children[0].children[0];
-                    header.selected = !header.selected;
+                betaCollection.reverse = true;
+                betaCollection.header = makeRow(betaCollection, triple[1], true).children[0];
+                betaCollection.header.parent.addEventListener('pointerstart', (event) => true);
+                betaCollection.addEventListener('select', (event) => {
+                    event.propagateTo = 'children';
                     for(const [symbol, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
-                        gammaRow.children[0].selected = header.selected;
+                        gammaRow.dispatchEvent(event);
+                    betaCollection.header.dispatchEvent(event);
                 });
+                this.indexedListPanel.contentPanel.insertChild(betaCollection);
+                SymbolMap.set(this.betaIndex, triple[1], betaCollection);
                 betaCollection.registerFocusEvent(betaCollection.children[0].backgroundPanel.node);
                 betaCollection.registerFocusNavigationEvent(1);
             } else
@@ -263,11 +264,12 @@ export class TriplePanel extends BasicSymbolPanel {
         this.indexedListPanel.contentPanel.recalculateLayout();
         this.indexedListPanel.recalculateLayout();
     }
-};
+}
 
 export class SymbolDataContentPanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.UTF8) {
         super(position, symbol);
+        PanePanel.registerPaneType(this.constructor, 'Symbol Data Panel', 'S');
         this.contentPanel = new TextAreaPanel(vec2.create(), vec2.create());
         this.contentPanel.recalculateLayout();
         this.contentPanel.addEventListener('change', (event) => {
@@ -306,15 +308,23 @@ export class SymbolDataContentPanel extends BasicSymbolPanel {
         super.backendUpdate();
         this.contentPanel.text = Utils.encodeText(backend.getData(this.symbol));
     }
-};
+}
 
 export class NamespacePanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.Namespaces) {
-        super(position, symbol, undefined, (item) => item instanceof SymbolThumbnailPanel && SymbolInternals.namespaceOfSymbol(item.symbol) == backend.metaNamespaceIdentity);
+        super(position, symbol, (item) => item instanceof SymbolThumbnailPanel && SymbolInternals.namespaceOfSymbol(item.symbol) == backend.metaNamespaceIdentity);
+        PanePanel.registerPaneType(this.constructor, 'Namespace Panel', 'N');
+        this.addEventListener('toolbarcontext', (event) => {
+            this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
+                {'content': 'Add Symbol', 'shortCut': 'S'},
+                {'content': 'Delete Selected', 'shortCut': '⌫'}
+            ]});
+        });
         this.listPanel = new TilingPanel(vec2.create(), vec2.create());
         this.listPanel.axis = 1;
         this.listPanel.registerFocusNavigationEvent();
         this.scrollViewPanel = new ScrollViewPanel(vec2.create(), vec2.create(), this.listPanel);
+        this.scrollViewPanel.enableSelectionRect = true;
         this.headerSplit.insertChild(this.scrollViewPanel);
         this.betaIndex = SymbolMap.create();
         this.backendUpdate();
@@ -345,23 +355,22 @@ export class NamespacePanel extends BasicSymbolPanel {
         const symbols = SymbolMap.create();
         for(const symbol of backend.querySymbols(SymbolInternals.identityOfSymbol(this.symbol))) {
             SymbolMap.set(symbols, symbol, true);
-            let entry = SymbolMap.get(this.betaIndex, symbol);
-            if(entry)
+            let symbolPanel = SymbolMap.get(this.betaIndex, symbol);
+            if(symbolPanel)
                 continue;
-            entry = new SymbolThumbnailPanel(vec2.create(), symbol, () => {
-                entry.selected = !entry.selected;
-            });
-            this.listPanel.insertChild(entry);
-            entry.backendUpdate();
-            SymbolMap.set(this.betaIndex, symbol, entry);
+            symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol);
+            this.listPanel.insertChild(symbolPanel);
+            symbolPanel.registerSelectEvent();
+            symbolPanel.backendUpdate();
+            SymbolMap.set(this.betaIndex, symbol, symbolPanel);
         }
-        for(const [symbol, entry] of SymbolMap.entries(this.betaIndex)) {
+        for(const [symbol, symbolPanel] of SymbolMap.entries(this.betaIndex)) {
             if(!SymbolMap.get(symbols, symbol)) {
-                this.listPanel.removeChild(entry);
+                this.listPanel.removeChild(symbolPanel);
                 SymbolMap.remove(this.betaIndex, symbol);
             }
         }
         this.listPanel.recalculateLayout();
         this.scrollViewPanel.recalculateLayout();
     }
-};
+}

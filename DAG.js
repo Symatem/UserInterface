@@ -135,14 +135,15 @@ function* schematicLayout(layersAndVertices) {
 }
 
 export class DagPanel extends BasicSymbolPanel {
-    constructor(position, symbol, onClick, acceptsDrop) {
-        super(position, symbol, onClick, acceptsDrop);
+    constructor(position, symbol, acceptsDrop) {
+        super(position, symbol, acceptsDrop);
         this.cellWidth = 25;
         this.cellHeight = 25;
         this.vertexIndex = SymbolMap.create();
         this.edgeIndex = SymbolMap.create();
         this.dagLayers = [];
         this.scrollViewPanel = new ScrollViewPanel(vec2.create(), vec2.create());
+        this.scrollViewPanel.enableSelectionRect = true;
         this.scrollViewPanel.contentPanel.padding[0] = this.scrollViewPanel.contentPanel.padding[1] = 10;
         this.headerSplit.insertChild(this.scrollViewPanel);
         this.linesPanel = new ContainerPanel(vec2.create(), vec2.create());
@@ -188,21 +189,18 @@ export class DagPanel extends BasicSymbolPanel {
             edgePanel.deletionFlag = true;
         this.dagLayers = [];
         for(const layer of schematicLayout(topologicalSort(this.getVertices()))) {
-            this.dagLayers.push(layer);
             for(const vertex of layer) {
                 let vertexPanel = SymbolMap.get(this.vertexIndex, vertex.vertex);
                 if(!vertexPanel) {
                     vertexPanel = new CirclePanel(vec2.create(), vec2.fromValues(10, 10));
                     vertexPanel.updateSize();
                     vertexPanel.node.classList.add('vcsDagNode');
+                    vertexPanel.registerSelectEvent();
                     vertexPanel.registerFocusEvent(vertexPanel.node);
                     vertexPanel.vertex = vertex;
                     vertex.panel = vertexPanel;
                     this.scrollViewPanel.contentPanel.insertChild(vertexPanel);
                     SymbolMap.set(this.vertexIndex, vertex.vertex, vertexPanel);
-                    vertexPanel.addEventListener('action', () => {
-                        vertexPanel.selected = !vertexPanel.selected;
-                    });
                     vertexPanel.registerDragEvent(() => {
                         const panel = new SymbolThumbnailPanel(vec2.create(), vertex.vertex);
                         panel.backendUpdate();
@@ -219,18 +217,17 @@ export class DagPanel extends BasicSymbolPanel {
                         if(!edgePanel) {
                             edgePanel = new PolygonPanel(vec2.fromValues(0, 0), vec2.create());
                             edgePanel.node.classList.add('vcsDagEdge');
-                            edgePanel.registerFocusEvent(edgePanel.node);
-                            edgePanel.edge = edge;
-                            edge.panel = edgePanel;
-                            this.linesPanel.insertChild(edgePanel);
-                            SymbolMap.set(this.edgeIndex, edge.edge, edgePanel);
-                            edgePanel.addEventListener('action', () => {
-                                edgePanel.selected = !edgePanel.selected;
+                            edgePanel.registerSelectEvent(() => {
                                 if(edgePanel.selected) {
                                     this.linesPanel.removeChild(edgePanel);
                                     this.linesPanel.insertChild(edgePanel);
                                 }
                             });
+                            edgePanel.registerFocusEvent(edgePanel.node);
+                            edgePanel.edge = edge;
+                            edge.panel = edgePanel;
+                            this.linesPanel.insertChild(edgePanel);
+                            SymbolMap.set(this.edgeIndex, edge.edge, edgePanel);
                             edgePanel.registerDragEvent(() => {
                                 const panel = new SymbolThumbnailPanel(vec2.create(), edge.edge);
                                 panel.backendUpdate();
@@ -260,4 +257,4 @@ export class DagPanel extends BasicSymbolPanel {
         this.scrollViewPanel.contentPanel.recalculateLayout();
         this.scrollViewPanel.recalculateLayout();
     }
-};
+}
