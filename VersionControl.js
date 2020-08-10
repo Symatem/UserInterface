@@ -10,7 +10,6 @@ export class RepositoryPanel extends DagPanel {
             symbol,
             (item) => item instanceof SymbolThumbnailPanel && SymbolInternals.namespaceOfSymbol(item.symbol) == backend.metaNamespaceIdentity
         );
-        PanePanel.registerPaneType(this.constructor, 'Repository Panel', 'R');
         this.addEventListener('toolbarcontext', (event) => {
             this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
                 {'content': 'Add Orphan Version', 'shortCut': 'O'},
@@ -45,3 +44,5 @@ export class RepositoryPanel extends DagPanel {
         this.backendUpdate();
     }
 }
+
+PanePanel.registerPaneType(RepositoryPanel, 'Repository Panel', 'R');

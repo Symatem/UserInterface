@@ -68,13 +68,11 @@
                     {'content': 'Down', 'shortCut': '↓', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'down')},
                     {'content': 'Use', 'shortCut': '↵', 'action': (event) => {
                         if(root.focusedPanel)
-                            root.focusedPanel.actionOrSelect(event);
+                            root.focusedPanel.actionOrSelect({'source': event.source, 'propagateTo': 'parent', 'shiftKey': false});
                     }},
                     {'content': 'Invert Selection', 'shortCut': '⇧↵', 'action': (event) => {
-                        if(root.focusedPanel) {
-                            event.shiftKey = true;
-                            root.focusedPanel.actionOrSelect(event);
-                        }
+                        if(root.focusedPanel)
+                            root.focusedPanel.actionOrSelect({'source': event.source, 'propagateTo': 'parent', 'shiftKey': true});
                     }},
                     {'content': 'Defocus', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'defocus')}
                 ]},

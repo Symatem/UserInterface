@@ -115,7 +115,6 @@ const indexNames = ['EAV', 'AVE', 'VEA', 'EVA', 'AEV', 'VAE'],
 export class TriplePanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.UTF8) {
         super(position, symbol);
-        PanePanel.registerPaneType(this.constructor, 'Triple Panel', 'T');
         this.addEventListener('toolbarcontext', (event) => {
             this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
                 {'content': 'Add Triple', 'shortCut': 'T'},
@@ -228,6 +227,8 @@ export class TriplePanel extends BasicSymbolPanel {
                 betaCollection.header.parent.addEventListener('pointerstart', (event) => true);
                 betaCollection.addEventListener('select', (event) => {
                     event.propagateTo = 'children';
+                    if(event.bounds)
+                        return;
                     for(const [symbol, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
                         gammaRow.dispatchEvent(event);
                     betaCollection.header.dispatchEvent(event);
@@ -266,10 +267,11 @@ export class TriplePanel extends BasicSymbolPanel {
     }
 }
 
+PanePanel.registerPaneType(TriplePanel, 'Triple Panel', 'T');
+
 export class SymbolDataContentPanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.UTF8) {
         super(position, symbol);
-        PanePanel.registerPaneType(this.constructor, 'Symbol Data Panel', 'S');
         this.contentPanel = new TextAreaPanel(vec2.create(), vec2.create());
         this.contentPanel.recalculateLayout();
         this.contentPanel.addEventListener('change', (event) => {
@@ -310,10 +312,11 @@ export class SymbolDataContentPanel extends BasicSymbolPanel {
     }
 }
 
+PanePanel.registerPaneType(SymbolDataContentPanel, 'Symbol Data Panel', 'S');
+
 export class NamespacePanel extends BasicSymbolPanel {
     constructor(position, symbol=backend.symbolByName.Namespaces) {
         super(position, symbol, (item) => item instanceof SymbolThumbnailPanel && SymbolInternals.namespaceOfSymbol(item.symbol) == backend.metaNamespaceIdentity);
-        PanePanel.registerPaneType(this.constructor, 'Namespace Panel', 'N');
         this.addEventListener('toolbarcontext', (event) => {
             this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
                 {'content': 'Add Symbol', 'shortCut': 'S'},
@@ -374,3 +377,5 @@ export class NamespacePanel extends BasicSymbolPanel {
         this.scrollViewPanel.recalculateLayout();
     }
 }
+
+PanePanel.registerPaneType(NamespacePanel, 'Namespace Panel', 'N');

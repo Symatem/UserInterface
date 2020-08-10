@@ -1,6 +1,6 @@
 import { vec2 } from './node_modules/SvgPanels/Panel.js';
 import { PolygonPanel, CirclePanel } from './node_modules/SvgPanels/Atoms.js';
-import { ContainerPanel, ScrollViewPanel } from './node_modules/SvgPanels/Containers.js';
+import { AdaptiveSizeContainerPanel, ScrollViewPanel } from './node_modules/SvgPanels/Containers.js';
 import { SymbolMap } from './node_modules/SymatemJS/SymatemJS.mjs';
 import { backend, SymbolThumbnailPanel, BasicSymbolPanel } from './Basics.js';
 
@@ -146,9 +146,15 @@ export class DagPanel extends BasicSymbolPanel {
         this.scrollViewPanel.enableSelectionRect = true;
         this.scrollViewPanel.contentPanel.padding[0] = this.scrollViewPanel.contentPanel.padding[1] = 10;
         this.headerSplit.insertChild(this.scrollViewPanel);
-        this.linesPanel = new ContainerPanel(vec2.create(), vec2.create());
+        this.linesPanel = new AdaptiveSizeContainerPanel(vec2.create(), vec2.create());
+        this.addEventListener('selectionchange', (event) => {
+            const selected = this.linesPanel.children.filter((line) => line.selected);
+            for(const line of selected)
+                this.linesPanel.removeChild(line);
+            for(const line of selected)
+                this.linesPanel.insertChild(line);
+        });
         this.scrollViewPanel.contentPanel.insertChild(this.linesPanel);
-        this.symbol = symbol;
         this.addEventListener('focusnavigation', (event) => {
             if(event.direction == 'in')
                 this.symbolPanel.dispatchEvent({'type': 'focus'});
@@ -179,6 +185,7 @@ export class DagPanel extends BasicSymbolPanel {
             }
             return true;
         });
+        this.symbol = symbol;
     }
 
     backendUpdate() {
@@ -217,12 +224,7 @@ export class DagPanel extends BasicSymbolPanel {
                         if(!edgePanel) {
                             edgePanel = new PolygonPanel(vec2.fromValues(0, 0), vec2.create());
                             edgePanel.node.classList.add('vcsDagEdge');
-                            edgePanel.registerSelectEvent(() => {
-                                if(edgePanel.selected) {
-                                    this.linesPanel.removeChild(edgePanel);
-                                    this.linesPanel.insertChild(edgePanel);
-                                }
-                            });
+                            edgePanel.registerSelectEvent();
                             edgePanel.registerFocusEvent(edgePanel.node);
                             edgePanel.edge = edge;
                             edge.panel = edgePanel;
@@ -253,7 +255,8 @@ export class DagPanel extends BasicSymbolPanel {
                 this.linesPanel.removeChild(edgePanel);
                 SymbolMap.remove(this.edgeIndex, edge);
             }
-        vec2.scale(this.linesPanel.position, this.linesPanel.position, 0.0);
+        this.linesPanel.recalculateLayout();
+        vec2.scale(this.linesPanel.position, this.linesPanel.size, 0.5);
         this.scrollViewPanel.contentPanel.recalculateLayout();
         this.scrollViewPanel.recalculateLayout();
     }
