@@ -11,11 +11,12 @@
         <link rel="stylesheet" type="text/css" href="style.css" />
         <script type="module">
             import { vec2 } from './node_modules/SvgPanels/Panel.js';
-            import { LabelPanel, RectPanel, SpeechBalloonPanel, TextFieldPanel, ImagePanel } from './node_modules/SvgPanels/Atoms.js';
+            import { LabelPanel, RectPanel, SpeechBalloonPanel, FileUploadPanel, TextFieldPanel, ImagePanel } from './node_modules/SvgPanels/Atoms.js';
             import { ContainerPanel, RootPanel, AdaptiveSizeContainerPanel, CheckboxPanel, PanePanel, TilingPanel, ToolbarPanel, SplitViewPanel, TabPanel, TabsViewPanel, ScrollViewPanel, SliderPanel, CollapsibleViewPanel } from './node_modules/SvgPanels/Containers.js';
             import { AnimatedLogoPanel } from './Logo.js';
             import { backend, TriplePanel, SymbolDataContentPanel, NamespacePanel } from './Basics.js';
             import { RepositoryPanel } from './VersionControl.js';
+            import { Utils, SymbolInternals } from './node_modules/SymatemJS/SymatemJS.mjs';
 
             const root = new RootPanel(document.body, vec2.create());
             document.body.onresize = root.recalculateLayout.bind(root);
@@ -43,6 +44,25 @@
             const versionLabel = new LabelPanel(vec2.fromValues(0, 200), '0.0.1');
             aboutPanel.insertChild(versionLabel);
             aboutPanel.recalculateLayout();
+            aboutPanel.backgroundPanel.registerFocusEvent(aboutPanel.backgroundPanel.node);
+            aboutPanel.addEventListener('focusnavigation', (event) => {
+                if(event.direction != 'in')
+                    return false;
+                aboutPanel.backgroundPanel.dispatchEvent({'type': 'focus'});
+                return true;
+            });
+
+            const fileUploadPanel = new FileUploadPanel(vec2.fromValues(0, 0), vec2.fromValues(300, 300));
+            fileUploadPanel.addEventListener('change', (event) => {
+                if(event.files.length == 1 && event.files[0].type == 'application/json') {
+                    const reader = new FileReader();
+                    reader.onload = (result) => {
+                        backend.diffBasedDecodeJson(result.target.result);
+                        root.closeModalOverlay(event);
+                    };
+                    reader.readAsText(event.files[0]);
+                }
+            });
 
             const headerSplit = new TilingPanel(vec2.create(), root.size);
             headerSplit.axis = 1;
@@ -57,7 +77,14 @@
                     {'content': 'About', 'action': (event) => {
                         root.openModalOverlay(event, aboutPanel);
                     }},
-                    {'content': 'Toggle Fullscreen', 'shortCut': '^⌘F', 'action': root.toggleFullscreen.bind(root)}
+                    {'content': 'Load', 'shortCut': '^⌘L', 'action': (event) => {
+                        fileUploadPanel.embeddedNode.click();
+                    }},
+                    {'content': 'Store', 'shortCut': '^⌘S', 'action': (event) => {
+                        const namespaceIdentities = [...backend.querySymbols(backend.metaNamespaceIdentity)].map((symbol) => SymbolInternals.identityOfSymbol(symbol)).filter((namespaceIdentity) => (namespaceIdentity > 3));
+                        Utils.downloadAsFile(backend.diffBasedEncodeJson(namespaceIdentities), 'Symatem.json');
+                    }},
+                    {'content': 'Fullscreen', 'shortCut': '^⌘F', 'action': root.toggleFullscreen.bind(root)}
                 ]},
                 {'content': 'Navigate', 'children': [
                     {'content': 'In', 'shortCut': '↹', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'in')},
