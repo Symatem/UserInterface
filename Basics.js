@@ -1,23 +1,70 @@
 import { vec2, Panel } from './node_modules/SvgPanels/Panel.js';
 import { PanePanel, TilingPanel, DropDownMenuPanel, ButtonPanel, ScrollViewPanel, IndexedListPanel } from './node_modules/SvgPanels/Containers.js';
 import { LabelPanel, RectPanel, TextAreaPanel } from './node_modules/SvgPanels/Atoms.js';
-import { Utils, SymbolInternals, SymbolMap, JavaScriptBackend } from './node_modules/SymatemJS/SymatemJS.mjs';
+import { Utils, SymbolInternals, RelocationTable, SymbolMap, JavaScriptBackend, Diff } from './node_modules/SymatemJS/SymatemJS.mjs';
 export const backend = new JavaScriptBackend();
 const symbolObservers = SymbolMap.create();
 
-function startObservingSymbol(observer, symbol) {
+export function startObservingSymbol(observer, symbol) {
     SymbolMap.getOrInsert(symbolObservers, symbol, new Set()).add(observer);
 }
 
-function stopObservingSymbol(observer, symbol) {
+export function stopObservingSymbol(observer, symbol) {
     SymbolMap.get(symbolObservers, symbol).delete(observer);
 }
 
-function triggerObservedSymbol(symbol) {
-    const observers = SymbolMap.get(symbolObservers, symbol);
-    if(observers)
-        for(const observer of observers)
-            observer.backendUpdate();
+const recordingRelocation = RelocationTable.create();
+RelocationTable.set(recordingRelocation, 2, 5);
+const materializationRelocation = RelocationTable.inverse(recordingRelocation),
+      repositoryNamespace = 4;
+backend.manifestSymbol(SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, repositoryNamespace));
+backend.manifestSymbol(SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, 5));
+
+export function createDiff() {
+    return new Diff(backend, repositoryNamespace, recordingRelocation);
+}
+
+export function applyDiff(diff, recorded=true, reverse=false) {
+    if(recorded) {
+        if(diff.isEmpty()) {
+            diff.unlink();
+            return;
+        }
+        diff.commit();
+        diff.link();
+    } else if(!diff.apply(reverse, materializationRelocation))
+        return;
+    const accumulator = SymbolMap.create();
+    if(recorded) {
+        SymbolMap.set(accumulator, SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, diff.repositoryNamespace), true);
+        for(const [source, destination] of RelocationTable.entries(recordingRelocation)) {
+            SymbolMap.set(accumulator, SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, source), true);
+            SymbolMap.set(accumulator, SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, destination), true);
+        }
+    } else
+        for(const [source, destination] of RelocationTable.entries(materializationRelocation))
+            SymbolMap.set(accumulator, SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, destination), true);
+    for(const [alpha, operationsOfSymbol] of SymbolMap.entries(diff.operationsBySymbol)) {
+        const symbol = RelocationTable.relocateSymbol(materializationRelocation, alpha);
+        SymbolMap.set(accumulator, symbol, true);
+        if(operationsOfSymbol.tripleOperations)
+            for(const [beta, gammaCollection] of SymbolMap.entries(operationsOfSymbol.tripleOperations)) {
+                SymbolMap.set(accumulator, RelocationTable.relocateSymbol(materializationRelocation, beta), true);
+                for(const [gamma, link] of SymbolMap.entries(gammaCollection))
+                    SymbolMap.set(accumulator, RelocationTable.relocateSymbol(materializationRelocation, gamma), true);
+            }
+        if(operationsOfSymbol.manifestOrRelease)
+            SymbolMap.set(accumulator, SymbolInternals.concatIntoSymbol(backend.metaNamespaceIdentity, SymbolInternals.namespaceOfSymbol(symbol)), true);
+    }
+    const observersToTrigger = new Set();
+    for(const symbol of SymbolMap.keys(accumulator)) {
+        const observers = SymbolMap.get(symbolObservers, symbol);
+        if(observers)
+            for(const observer of observers)
+                observersToTrigger.add(observer);
+    }
+    for(const observer of observersToTrigger)
+        observer.backendUpdate();
 }
 
 export class SymbolThumbnailPanel extends LabelPanel {
@@ -55,14 +102,18 @@ export class SymbolThumbnailPanel extends LabelPanel {
     }
 }
 
+function acceptsDropDefault(item) {
+    return item instanceof SymbolThumbnailPanel && this.symbol != item.symbol;
+}
+
 export class BasicSymbolPanel extends PanePanel {
-    constructor(position, symbol, acceptsDrop=(item) => item instanceof SymbolThumbnailPanel) {
+    constructor(position, symbol, acceptsDrop) {
         super(position, vec2.create());
         this.addEventListener('parentchange', (event) => {
             if(this.parent)
-                startObservingSymbol(this, symbol);
+                startObservingSymbol(this, this.symbol);
             else
-                stopObservingSymbol(this, symbol);
+                stopObservingSymbol(this, this.symbol);
         });
         this.headerSplit = new TilingPanel(vec2.create(), vec2.create());
         this.headerSplit.padding = vec2.fromValues(5, 5);
@@ -76,11 +127,9 @@ export class BasicSymbolPanel extends PanePanel {
         this.headerPanel.sizeAlongAxis = 0;
         this.headerSplit.insertChild(this.headerPanel);
         this.symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol);
-        this.symbolPanel.registerDropEvent(acceptsDrop,
-            (item) => {
-                this.symbol = item.symbol;
-            }
-        );
+        this.symbolPanel.registerDropEvent(acceptsDrop || acceptsDropDefault.bind(this), (item) => {
+            this.symbol = item.symbol;
+        });
         this.headerPanel.insertChild(this.symbolPanel);
         this.headerPanel.recalculateLayout();
         this.insertChild(this.headerSplit);
@@ -91,7 +140,7 @@ export class BasicSymbolPanel extends PanePanel {
     }
 
     set symbol(symbol) {
-        stopObservingSymbol(this, this.symbolPanel.symbol);
+        stopObservingSymbol(this, this.symbol);
         startObservingSymbol(this, symbol);
         this.symbolPanel.symbol = symbol;
     }
@@ -117,8 +166,26 @@ export class TriplePanel extends BasicSymbolPanel {
         super(position, symbol);
         this.addEventListener('toolbarcontext', (event) => {
             this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
-                {'content': 'Add Triple', 'shortCut': 'T'},
-                {'content': 'Delete Selected', 'shortCut': '⌫'}
+                {'content': 'Add Triple', 'shortCut': 'T', 'action': (event) => {
+                    const diff = createDiff();
+                    let createBeta = true;
+                    for(const [beta, betaCollection] of SymbolMap.entries(this.betaIndex))
+                        if(betaCollection.header.selected) {
+                            diff.setTriple([this.symbol, beta, backend.symbolByName.Void], true);
+                            createBeta = false;
+                        }
+                    if(createBeta)
+                        diff.setTriple([this.symbol, backend.symbolByName.Void, backend.symbolByName.Void], true);
+                    applyDiff(diff);
+                }},
+                {'content': 'Delete Selected', 'shortCut': '⌫', 'action': (event) => {
+                    const diff = createDiff();
+                    for(const [beta, betaCollection] of SymbolMap.entries(this.betaIndex))
+                        for(const [gamma, gammaRow] of SymbolMap.entries(betaCollection.gammaSet))
+                            if(gammaRow.children[0].selected)
+                                diff.setTriple([this.symbol, beta, gamma], false);
+                    applyDiff(diff);
+                }}
             ]});
         });
         const indexOptions = [];
@@ -198,14 +265,29 @@ export class TriplePanel extends BasicSymbolPanel {
             rowPanel.axis = 1;
             rowPanel.sizeAlongAxis = 'centering';
             rowPanel.padding[0] = 25;
-            if(isHeader) {
-                rowPanel.backgroundPanel = new RectPanel(vec2.create(), vec2.create());
-                rowPanel.backgroundPanel.node.classList.add('indexedListHeader');
-            }
             const symbolPanel = new SymbolThumbnailPanel(vec2.create(), symbol);
             rowPanel.insertChild(symbolPanel);
             symbolPanel.registerSelectEvent();
             symbolPanel.backendUpdate();
+            if(isHeader) {
+                rowPanel.backgroundPanel = new RectPanel(vec2.create(), vec2.create());
+                rowPanel.backgroundPanel.node.classList.add('indexedListHeader');
+                symbolPanel.registerDropEvent(acceptsDropDefault.bind(symbolPanel), (item) => {
+                    const diff = createDiff();
+                    for(const [gamma, gammaRow] of SymbolMap.entries(betaCollection.gammaSet)) {
+                        diff.setTriple([this.symbol, symbolPanel.symbol, gamma], false);
+                        diff.setTriple([this.symbol, item.symbol, gamma], true);
+                    }
+                    applyDiff(diff);
+                });
+            } else {
+                symbolPanel.registerDropEvent(acceptsDropDefault.bind(symbolPanel), (item) => {
+                    const diff = createDiff();
+                    diff.setTriple([this.symbol, rowPanel.parent.header.symbol, symbolPanel.symbol], false);
+                    diff.setTriple([this.symbol, rowPanel.parent.header.symbol, item.symbol], true);
+                    applyDiff(diff);
+                });
+            }
             rowPanel.recalculateLayout();
             rowPanel.otherAxisSizeStays = true;
             betaCollection.insertChild(rowPanel, 0);
@@ -277,8 +359,9 @@ export class SymbolDataContentPanel extends BasicSymbolPanel {
         this.contentPanel.addEventListener('change', (event) => {
             const data = Utils.decodeText(this.contentPanel.text);
             if(data && data != backend.getData(this.symbol)) {
-                backend.setData(this.symbol, data);
-                triggerObservedSymbol(this.symbol);
+                const diff = createDiff();
+                diff.setData(this.symbol, data);
+                applyDiff(diff);
             }
         });
         this.headerSplit.insertChild(this.contentPanel);
@@ -319,8 +402,18 @@ export class NamespacePanel extends BasicSymbolPanel {
         super(position, symbol, (item) => item instanceof SymbolThumbnailPanel && SymbolInternals.namespaceOfSymbol(item.symbol) == backend.metaNamespaceIdentity);
         this.addEventListener('toolbarcontext', (event) => {
             this.root.toolBarPanel.setContext(event, {'content': 'Context', 'children': [
-                {'content': 'Add Symbol', 'shortCut': 'S'},
-                {'content': 'Delete Selected', 'shortCut': '⌫'}
+                {'content': 'Add Symbol', 'shortCut': 'S', 'action': (event) => {
+                    const diff = createDiff();
+                    diff.createSymbol(SymbolInternals.identityOfSymbol(this.symbol));
+                    applyDiff(diff);
+                }},
+                {'content': 'Delete Selected', 'shortCut': '⌫', 'action': (event) => {
+                    const diff = createDiff();
+                    for(const [symbol, symbolPanel] of SymbolMap.entries(this.betaIndex))
+                        if(symbolPanel.selected)
+                            diff.unlinkSymbol(symbol);
+                    applyDiff(diff);
+                }}
             ]});
         });
         this.listPanel = new TilingPanel(vec2.create(), vec2.create());
