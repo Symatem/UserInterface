@@ -1,6 +1,12 @@
 {
+    "name": "@symatem/ui",
     "version": "0.0.1",
-    "name": "SymatemUI",
+    "authors": [
+        "Alexander Meißner"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "license": "MIT",
     "dependencies": {
         "SymatemJS": "https://github.com/Symatem/SymatemJS",
