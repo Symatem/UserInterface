@@ -1,4 +1,4 @@
-import { vec2, Panel } from './node_modules/SvgPanels/Panel.js';
+import { vec2 } from './node_modules/SvgPanels/Panel.js';
 import { PanePanel, TilingPanel, DropDownMenuPanel, ButtonPanel, ScrollViewPanel, IndexedListPanel } from './node_modules/SvgPanels/Containers.js';
 import { LabelPanel, RectPanel, TextAreaPanel } from './node_modules/SvgPanels/Atoms.js';
 import { Utils, SymbolInternals, RelocationTable, SymbolMap, JavaScriptBackend, Diff } from './node_modules/SymatemJS/SymatemJS.mjs';

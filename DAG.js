@@ -2,7 +2,7 @@ import { vec2 } from './node_modules/SvgPanels/Panel.js';
 import { PolygonPanel, CirclePanel } from './node_modules/SvgPanels/Atoms.js';
 import { AdaptiveSizeContainerPanel, ScrollViewPanel } from './node_modules/SvgPanels/Containers.js';
 import { SymbolMap } from './node_modules/SymatemJS/SymatemJS.mjs';
-import { backend, SymbolThumbnailPanel, BasicSymbolPanel } from './Basics.js';
+import { SymbolThumbnailPanel, BasicSymbolPanel } from './Basics.js';
 
 function topologicalSort(vertices) {
     let layer = []

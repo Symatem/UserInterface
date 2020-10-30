@@ -1,4 +1,4 @@
-import { SymbolInternals, SymbolMap, RelocationTable, Repository } from './node_modules/SymatemJS/SymatemJS.mjs';
+import { SymbolInternals, Repository } from './node_modules/SymatemJS/SymatemJS.mjs';
 import { PanePanel } from './node_modules/SvgPanels/Containers.js';
 import { DagPanel } from './DAG.js';
 import { backend, SymbolThumbnailPanel } from './Basics.js';
