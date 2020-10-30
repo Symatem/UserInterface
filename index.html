@@ -1,0 +1,196 @@
+<!DOCTYPE "html">
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Symatem</title>
+        <meta name="author" content="Alexander Meißner" />
+        <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="theme-color" content="#FFFFFF" />
+        <link rel="icon" type="image/png" href="logo.png" />
+        <link rel="stylesheet" type="text/css" href="./node_modules/SvgPanels/style.css" />
+        <link rel="stylesheet" type="text/css" href="style.css" />
+        <script type="module">
+            import { vec2 } from './node_modules/SvgPanels/Panel.js';
+            import { LabelPanel, RectPanel, SpeechBalloonPanel, FileUploadPanel, TextFieldPanel, ImagePanel } from './node_modules/SvgPanels/Atoms.js';
+            import { ContainerPanel, RootPanel, AdaptiveSizeContainerPanel, CheckboxPanel, PanePanel, TilingPanel, ToolbarPanel, SplitViewPanel, TabPanel, TabsViewPanel, ScrollViewPanel, SliderPanel, CollapsibleViewPanel } from './node_modules/SvgPanels/Containers.js';
+            import { AnimatedLogoPanel } from './Logo.js';
+            import { backend, TriplePanel, SymbolDataContentPanel, NamespacePanel } from './Basics.js';
+            import { RepositoryPanel } from './VersionControl.js';
+            import { Utils, SymbolInternals } from './node_modules/SymatemJS/SymatemJS.mjs';
+
+            const root = new RootPanel(document.body, vec2.create());
+            document.body.onresize = root.recalculateLayout.bind(root);
+            document.body.onload = () => {
+                root.recalculateLayout();
+                const circleRadius = Math.min(root.size[0], root.size[1])*0.8,
+                      animatedLogoPanel = new AnimatedLogoPanel(vec2.create(), vec2.fromValues(circleRadius, circleRadius));
+                root.content.insertChild(animatedLogoPanel);
+                animatedLogoPanel.startAnimation();
+                animatedLogoPanel.onend = () => {
+                    root.content.removeChild(animatedLogoPanel);
+                    root.content.insertChildAnimated(headerSplit);
+                    headerSplit.recalculateLayout();
+                };
+            };
+
+            const aboutPanel = new AdaptiveSizeContainerPanel(vec2.create());
+            aboutPanel.padding = vec2.fromValues(10, 10);
+            aboutPanel.backgroundPanel = new SpeechBalloonPanel(vec2.create(), vec2.create());
+            aboutPanel.backgroundPanel.updateSize();
+            const logoPanel = new ImagePanel(vec2.create(), vec2.fromValues(300, 300), 'logo.svg');
+            aboutPanel.insertChild(logoPanel);
+            const titleLabel = new LabelPanel(vec2.fromValues(0, 180), 'Symatem UI');
+            aboutPanel.insertChild(titleLabel);
+            const versionLabel = new LabelPanel(vec2.fromValues(0, 200), '0.0.1');
+            aboutPanel.insertChild(versionLabel);
+            aboutPanel.recalculateLayout();
+            aboutPanel.backgroundPanel.registerFocusEvent(aboutPanel.backgroundPanel.node);
+            aboutPanel.addEventListener('focusnavigation', (event) => {
+                if(event.direction != 'in')
+                    return false;
+                aboutPanel.backgroundPanel.dispatchEvent({'type': 'focus'});
+                return true;
+            });
+
+            const fileUploadPanel = new FileUploadPanel(vec2.fromValues(0, 0), vec2.fromValues(300, 300));
+            fileUploadPanel.addEventListener('change', (event) => {
+                if(event.files.length == 1 && event.files[0].type == 'application/json') {
+                    const reader = new FileReader();
+                    reader.onload = (result) => {
+                        backend.diffBasedDecodeJson(result.target.result);
+                        root.closeModalOverlay(event);
+                    };
+                    reader.readAsText(event.files[0]);
+                }
+            });
+
+            const headerSplit = new TilingPanel(vec2.create(), root.size);
+            headerSplit.axis = 1;
+            headerSplit.sizeAlongAxis = -1;
+            headerSplit.otherAxisSizeStays = true;
+            headerSplit.otherAxisAlignment = 'stretch';
+            headerSplit.registerFocusNavigationEvent();
+            root.toolBarPanel = new ToolbarPanel(vec2.create());
+            headerSplit.insertChild(root.toolBarPanel);
+            root.toolBarPanel.addEntries([
+                {'content': new ImagePanel(vec2.create(), vec2.fromValues(15, 15), 'logo.svg'), 'children': [
+                    {'content': 'About', 'action': (event) => {
+                        root.openModalOverlay(event, aboutPanel);
+                    }},
+                    {'content': 'Load', 'shortCut': '^⌘L', 'action': (event) => {
+                        fileUploadPanel.embeddedNode.click();
+                    }},
+                    {'content': 'Store', 'shortCut': '^⌘S', 'action': (event) => {
+                        const namespaceIdentities = [...backend.querySymbols(backend.metaNamespaceIdentity)].map((symbol) => SymbolInternals.identityOfSymbol(symbol)).filter((namespaceIdentity) => (namespaceIdentity > 3));
+                        Utils.downloadAsFile(backend.diffBasedEncodeJson(namespaceIdentities), 'Symatem.json');
+                    }},
+                    {'content': 'Fullscreen', 'shortCut': '^⌘F', 'action': root.toggleFullscreen.bind(root)}
+                ]},
+                {'content': 'Navigate', 'children': [
+                    {'content': 'In', 'shortCut': '↹', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'in')},
+                    {'content': 'Out', 'shortCut': '⇧↹', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'out')},
+                    {'content': 'Left', 'shortCut': '←', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'left')},
+                    {'content': 'Right', 'shortCut': '→', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'right')},
+                    {'content': 'Up', 'shortCut': '↑', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'up')},
+                    {'content': 'Down', 'shortCut': '↓', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'down')},
+                    {'content': 'Use', 'shortCut': '↵', 'action': (event) => {
+                        if(root.focusedPanel)
+                            root.focusedPanel.actionOrSelect({'source': event.source, 'propagateTo': 'parent', 'shiftKey': false});
+                    }},
+                    {'content': 'Invert Selection', 'shortCut': '⇧↵', 'action': (event) => {
+                        if(root.focusedPanel)
+                            root.focusedPanel.actionOrSelect({'source': event.source, 'propagateTo': 'parent', 'shiftKey': true});
+                    }},
+                    {'content': 'Defocus', 'action': root.toolBarPanel.navigateFocus.bind(root.toolBarPanel, 'defocus')}
+                ]},
+                {'content': 'Layout', 'children': [
+                    {'content': 'Split Horizontally', 'shortCut': '⇧⌘H', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 0, 'propagateTo': 'parent'})},
+                    {'content': 'Split Vertically', 'shortCut': '⇧⌘V', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 1, 'propagateTo': 'parent'})},
+                    {'content': 'Create Tab', 'shortCut': '⇧⌘T', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutsplit', {'direction': 2, 'propagateTo': 'parent'})},
+                    {'content': 'Move Left', 'shortCut': '⇧⌘←', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'left', 'propagateTo': 'parent'})},
+                    {'content': 'Move Right', 'shortCut': '⇧⌘→', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'right', 'propagateTo': 'parent'})},
+                    {'content': 'Move Up', 'shortCut': '⇧⌘↑', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'up', 'propagateTo': 'parent'})},
+                    {'content': 'Move Down', 'shortCut': '⇧⌘↓', 'action': root.toolBarPanel.focusOrContextEvent.bind(root.toolBarPanel, 'layoutmove', {'direction': 'down', 'propagateTo': 'parent'})}
+                ]},
+                {'content': 'Select', 'children': [
+                    {'content': 'All', 'shortCut': '⌘A', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'all')},
+                    {'content': 'None', 'shortCut': '⇧⌘A', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'none')},
+                    {'content': 'Inverse', 'shortCut': '⌘I', 'action': root.toolBarPanel.contextSelect.bind(root.toolBarPanel, 'inverse')}
+                ]},
+                {'content': 'Edit', 'children': [
+                    {'content': 'Undo', 'shortCut': '⌘Z'},
+                    {'content': 'Redo', 'shortCut': '⇧⌘Z'},
+                    {'content': 'Copy', 'shortCut': '⌘C', 'action': (event) => {
+                        if(root.focusedPanel)
+                            root.focusedPanel.dispatchEvent({'type': 'drag'});
+                    }},
+                    {'content': 'Paste', 'shortCut': '⌘V', 'action': root.drop.bind(root)}
+                ]}
+            ]);
+
+            const splitViewA = new SplitViewPanel(vec2.create(), vec2.create());
+            {
+                splitViewA.padding = vec2.fromValues(2, 2);
+                headerSplit.insertChild(splitViewA);
+                splitViewA.axis = 0;
+                const paneA = new RepositoryPanel(vec2.create(), backend.symbolByName.VersionControl);
+                {
+                    splitViewA.insertChild(paneA);
+                    paneA.relativeSize = 0.25;
+                }
+                const paneB = new NamespacePanel(vec2.create());
+                {
+                    splitViewA.insertChild(paneB);
+                    paneB.relativeSize = 0.25;
+                }
+                const splitViewB = new SplitViewPanel(vec2.fromValues(0, 0), vec2.fromValues(0, 0));
+                {
+                    splitViewA.insertChild(splitViewB);
+                    splitViewB.relativeSize = 0.5;
+                    splitViewB.axis = 1;
+                    const paneC = new TriplePanel(vec2.create());
+                    {
+                        splitViewB.insertChild(paneC);
+                        paneC.relativeSize = 0.5;
+                    }
+                    const tabsView = new TabsViewPanel(vec2.create(), vec2.create());
+                    {
+                        splitViewB.insertChild(tabsView);
+                        tabsView.relativeSize = 0.5;
+                        const paneA = new PanePanel(vec2.create(), vec2.create());
+                        const slider = new SliderPanel(vec2.fromValues(0, 0), vec2.fromValues(50, 20));
+                        slider.updatePosition();
+                        paneA.insertChild(slider);
+                        const paneB = new PanePanel(vec2.create(), vec2.create());
+                        const checkbox = new CheckboxPanel(vec2.fromValues(0, 0));
+                        checkbox.updatePosition();
+                        paneB.insertChild(checkbox);
+                        const paneC = new PanePanel(vec2.create(), vec2.create());
+                        const collapsibleView = new CollapsibleViewPanel(vec2.fromValues(0, 0), vec2.fromValues(200, 200));
+                        paneC.insertChild(collapsibleView);
+                        collapsibleView.updatePosition();
+                        collapsibleView.headerPanel.text = 'Collapsible View';
+                        collapsibleView.horizontalSplit.recalculateLayout();
+                        const rectPanel = new RectPanel(vec2.create(), vec2.fromValues(200, 200));
+                        rectPanel.updateSize();
+                        rectPanel.node.style.fill = 'grey';
+                        collapsibleView.contentPanel.insertChild(rectPanel);
+                        collapsibleView.contentPanel.recalculateLayout();
+                        const tabContent = [
+                            new SymbolDataContentPanel(vec2.create()),
+                            paneA, paneB, paneC
+                        ];
+                        for(let i = 0; i < tabContent.length; ++i) {
+                            const tabLabel = new LabelPanel(vec2.create());
+                            tabLabel.text = 'Tab '+i;
+                            tabsView.addTab(new TabPanel(tabContent[i], tabLabel), i == 0);
+                        }
+                        tabsView.tabsContainer.recalculateLayout();
+                    }
+                }
+            }
+        </script>
+    </head>
+    <body>
+    </body>
+</html>

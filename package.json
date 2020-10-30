@@ -1,0 +1,15 @@
+{
+    "name": "@symatem/ui",
+    "version": "0.0.1",
+    "authors": [
+        "Alexander Meißner"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "SymatemJS": "https://github.com/Symatem/SymatemJS",
+        "SvgPanels": "https://github.com/Symatem/SvgPanels"
+    }
+}
